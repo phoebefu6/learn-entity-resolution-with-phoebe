@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Six sessions on matching records that share no key: string similarity, the Fellegi-Sunter model and its clerical review band, blocking, honest evaluation, and master data. With a real matcher over 63 labelled records. Free, by Phoebe Fu.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Learn Entity Resolution with Phoebe">
+<meta property="og:description" content="Two pairs score 0.84. One is the same person, one is not. No threshold can separate them.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Learn Entity Resolution with Phoebe">
+<meta name="twitter:description" content="Two pairs score 0.84. One is the same person, one is not.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Learn Entity Resolution with Phoebe</title>
+<link rel="stylesheet" href="assets/style.css?v=1">
+<style>
+
+  .stats-row { display: flex; gap: 2.4rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .stat b { display: block; font-size: 2.1rem; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .72rem; opacity: .85; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
+
+  .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  .course-card {
+    border: 1px solid var(--hairline);
+    border-top: 4px solid var(--diff, var(--indigo));
+    border-radius: var(--radius);
+    padding: 1.2rem 1.3rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    text-decoration: none;
+    color: var(--ink);
+    background: #fff;
+    transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    position: relative;
+  }
+  .course-card:hover { border-color: var(--indigo-soft); border-top-color: var(--diff, var(--indigo)); box-shadow: 0 8px 28px rgba(77,124,15,.16); transform: translateY(-3px); }
+  .course-card .cicon { font-size: 1.7rem; line-height: 1; }
+  .course-card .cnum { font-size: .72rem; font-weight: 700; color: var(--indigo); text-transform: uppercase; letter-spacing: .1em; }
+  .course-card h3 { font-size: 1.05rem; font-weight: 800; line-height: 1.3; }
+  .course-card p { font-size: .85rem; color: var(--muted); flex: 1; }
+  .course-card .meta { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+  .diff-legend { display: flex; gap: 1rem; margin-top: 1.6rem; font-size: .74rem; color: var(--muted); font-weight: 600; flex-wrap: wrap; }
+  .diff-legend i { display: inline-block; width: .85rem; height: .35rem; border-radius: 999px; margin-right: .35rem; vertical-align: middle; }
+
+  .paths { margin-top: 2.6rem; }
+  .paths h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .3rem; }
+  .paths .plede { color: var(--muted); font-size: .92rem; margin-bottom: .8rem; }
+  .path { display: flex; gap: .55rem; align-items: center; padding: .75rem 0; border-bottom: .5px solid var(--hairline); flex-wrap: wrap; }
+  .path:last-child { border-bottom: none; }
+  .path b { min-width: 15.5rem; font-size: .9rem; }
+  .path .pstep { background: var(--indigo-50); color: var(--indigo); border-radius: 999px; padding: .16rem .68rem; font-weight: 700; font-size: .8rem; text-decoration: none; transition: all .12s ease; }
+  .path .pstep:hover { background: var(--indigo); color: #fff; }
+  .path .parr { color: var(--faint); font-weight: 700; }
+
+  .mm-section { margin-top: 1.6rem; }
+  .mm-section h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .2rem; }
+  .mm-section .mm-lede { color: var(--muted); font-size: .92rem; margin-bottom: .4rem; }
+  .mm-wrap { border: 1px solid var(--hairline); border-radius: var(--radius); background: linear-gradient(180deg,#fff,#F7FEE7); padding: .6rem; overflow-x: auto; }
+  .mm-svg { width: 100%; height: auto; display: block; max-width: 60rem; margin: 0 auto; min-width: 34rem; }
+  .mm-link { cursor: pointer; text-decoration: none; }
+  .mm-node rect { transition: opacity .15s ease, filter .15s ease; }
+  .mm-node text { pointer-events: none; }
+  .mm-link:hover .mm-node rect { filter: brightness(1.06); }
+  .mm-edge { transition: opacity .15s ease; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn with Phoebe · Data Engineering &amp; Infra</div>
+    <h1>Learn <span class="accent">Entity Resolution</span> with Phoebe</h1>
+    <p class="sub">Two systems describe the same customers and nothing joins them. There is no shared id, the emails disagree, and one person appears three times under two surnames. Six sessions build a working matcher over Meridian - 63 records covering 32 real people - and end at the finding that decides how the whole thing should be designed: two pairs that score exactly the same match weight, where one is the same person and one is a father and his son. No threshold separates them, which is why Fellegi and Sunter specified a band for a human and why almost every production system quietly drops it.</p>
+    <div class="stats-row">
+      <div class="stat"><b data-count="6">6</b><span>sessions</span></div>
+      <div class="stat"><b data-count="63">63</b><span>labelled records</span></div>
+      <div class="stat"><b data-count="32">32</b><span>real people behind them</span></div>
+      <div class="stat"><b data-count="1953">1953</b><span>possible pairs, 1.8% are matches</span></div>
+      <div class="stat"><b data-count="45">45</b><span>min per session</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>The six sessions 🔗 <span style="font-size:.85rem;font-weight:600;color:var(--muted)">· one customer master, built across all of them</span></h2>
+      <p class="plede">Every session adds a stage to a real matcher, and every number it reports is computed against the labels rather than asserted.</p>
+    </div>
+
+    <div class="course-grid">
+      <a class="course-card" href="courses/01-no-shared-key.html" style="--diff:#34D399">
+        <span class="cicon">🔑</span>
+        <span class="cnum">Session 1 · start here</span>
+        <h3>No shared key</h3>
+        <p>Two CRMs, a support system, and nothing that joins them. The five pipeline stages, the pair count that grows as the square, and the labelled truth that makes everything later measurable.</p>
+        <span class="meta"><span class="pill amber">▶ Start here</span></span>
+      </a>
+      <a class="course-card" href="courses/02-comparing-strings.html" style="--diff:#FBBF24">
+        <span class="cicon">📏</span>
+        <span class="cnum">Session 2 · foundations</span>
+        <h3>Comparing strings honestly</h3>
+        <p>Seven ways to score how alike two names are, each taught with the case where it is confidently wrong - including where Jaro-Winkler's prefix boost cannot help at all.</p>
+        <span class="meta"><span class="pill amber">🧪 live metric lab</span></span>
+      </a>
+      <a class="course-card" href="courses/03-fellegi-sunter.html" style="--diff:#FBBF24">
+        <span class="cicon">⚖️</span>
+        <span class="cnum">Session 3 · the core</span>
+        <h3>Fellegi-Sunter, and the band nobody implements</h3>
+        <p>The two probabilities that turn a similarity into evidence, and the structural point almost every system drops: two thresholds, with the pairs between them belonging to a human.</p>
+        <span class="meta"><span class="pill amber">★ the whole argument</span></span>
+      </a>
+      <a class="course-card" href="courses/04-blocking.html" style="--diff:#FB923C">
+        <span class="cicon">🧱</span>
+        <span class="cnum">Session 4 · hands-on</span>
+        <h3>Blocking</h3>
+        <p>Four ways to throw away most pairs before scoring them, and the three metrics that judge the choice. Every scheme here costs nine percent of the true pairs, permanently.</p>
+        <span class="meta"><span class="pill">the irreversible stage</span></span>
+      </a>
+      <a class="course-card" href="courses/05-judging-it.html" style="--diff:#FB923C">
+        <span class="cicon">🎯</span>
+        <span class="cnum">Session 5 · hands-on</span>
+        <h3>Judging it</h3>
+        <p>Precision and recall on pairs, why this field never reports accuracy, and the two opposite ways transitive closure gets the cluster count wrong.</p>
+        <span class="meta"><span class="pill amber">🔬 score three configs</span></span>
+      </a>
+      <a class="course-card" href="courses/06-master-data.html" style="--diff:#F87171">
+        <span class="cicon">🛡️</span>
+        <span class="cnum">Session 6 · capstone</span>
+        <h3>Master data, and the linkage you should not make</h3>
+        <p>Golden records, survivorship, and the four styles - taught with their real provenance, which is analyst frameworks rather than papers. Then the linkage you could make and should not.</p>
+        <span class="meta"><span class="pill amber">🔒 write a refusal</span></span>
+      </a>
+    </div>
+
+    <div class="diff-legend">
+      <span><i style="background:#34D399"></i>start here</span>
+      <span><i style="background:#FBBF24"></i>foundations</span>
+      <span><i style="background:#FB923C"></i>hands-on</span>
+      <span><i style="background:#F87171"></i>capstone</span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>Your passport 🎫</h2>
+      <p class="plede">Clear all three quiz questions in a session and it gets stamped. Stamps live in this browser only.</p>
+    </div>
+    <div class="pp-strip"></div>
+  </section>
+
+  <section class="section">
+    <div class="paths">
+      <h2>Choose your path 🗺️</h2>
+      <p class="plede">Everyone starts at session 1, because the labelled set is what makes the rest measurable rather than arguable.</p>
+      <div class="path"><b>⚖️ I need the model, properly</b>
+        <a class="pstep" href="courses/01-no-shared-key.html">1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/02-comparing-strings.html">2</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/03-fellegi-sunter.html">3</a>
+        <span style="font-size:.82rem;color:var(--muted)">similarity, then evidence, then the band</span>
+      </div>
+      <div class="path"><b>🏗️ I have to make it run at scale</b>
+        <a class="pstep" href="courses/01-no-shared-key.html">1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/03-fellegi-sunter.html">3</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/04-blocking.html">4</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/05-judging-it.html">5</a>
+        <span style="font-size:.82rem;color:var(--muted)">the model, then blocking, then how to judge it honestly</span>
+      </div>
+      <div class="path"><b>🎯 The whole build</b>
+        <a class="pstep" href="courses/01-no-shared-key.html">1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/02-comparing-strings.html">2</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/03-fellegi-sunter.html">3</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/04-blocking.html">4</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/05-judging-it.html">5</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/06-master-data.html">6</a>
+        <span style="font-size:.82rem;color:var(--muted)">from no join key to a golden record and a written refusal</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>What is real here 🧾</h2>
+      <p class="plede">A course about judging other people's matching has to be exact about its own.</p>
+    </div>
+    <table class="clean">
+      <tr><th>Claim</th><th>Status</th></tr>
+      <tr><td>Every similarity score and match weight</td><td>Real implementations running in your browser - Jaro-Winkler with the prefix capped at 4 and scale 0.1, Levenshtein, Damerau-Levenshtein, Jaro, Jaccard and Soundex. Type two strings into the session 2 lab and the seven numbers recompute as you type</td></tr>
+      <tr><td>Precision, recall, F1, pair completeness, reduction ratio, cluster counts</td><td>Computed against the 35 labelled true pairs at the moment you move a control. Nothing is scripted and no figure is looked up</td></tr>
+      <tr><td>The two pairs that both score 0.84</td><td>A genuine property of the data, not a staged demonstration. One is Sarah Whitfield after a job change and a move; one is a father and son sharing a landline. Both single-threshold rules measure F1 0.971 and neither can do better</td></tr>
+      <tr><td>The m and u probability table</td><td><strong>A judgement, not a measurement.</strong> It stands in for what Splink would estimate with expectation maximisation on a real corpus. Labelled as such on the widget itself. Everything computed from it is real arithmetic</td></tr>
+      <tr><td>Blocking costs nine percent of the true pairs</td><td>Measured on all four schemes. Postcode, surname soundex and sorted neighbourhood all land at 91 percent pair completeness on this data</td></tr>
+      <tr><td>Master data management's four implementation styles</td><td>Attributed to Gartner consistently across five independent vendor sources, with <strong>no primary Gartner note obtainable</strong>. Taught as an analyst framework, never as an academic citation. "Golden record" has no traceable originating citation either, and "survivorship rules" is vendor vocabulary</td></tr>
+      <tr><td>Sorted neighbourhood, B-cubed, MinHash, and the PETS 2011 cryptanalysis</td><td>Real work, cited from secondary sources rather than fetched primaries. Flagged on the page that teaches each</td></tr>
+      <tr><td>PDPA and entity resolution</td><td>Not covered. Session 6 reasons about GDPR identifiability and purpose limitation, and says plainly that no GDPR clause names record linkage and that PDPA was not researched</td></tr>
+    </table>
+  </section>
+
+  <section class="section mm-section">
+    <h2>The knowledge map 🧠</h2>
+    <p class="mm-lede">The whole course at a glance - hover a session to spotlight its concepts, click any node to jump in.</p>
+    <div class="mm-wrap"><div id="mindmap"></div></div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>learn-entity-resolution-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span>Pairs with <a href="https://phoebefu6.github.io/learn-data-modeling-with-phoebe/">Data Modeling ↗</a> for the keys that do exist · source map: <span class="mono">materials/official-course-map.md</span></span>
+  </footer>
+
+</main>
+
+<script>
+window.MINDMAP_DATA = {
+  "title": "Entity Resolution\n& Master Data",
+  "centerColor": "#365314",
+  "sessions": [
+    {
+      "label": "No\nshared key",
+      "href": "courses/01-no-shared-key.html",
+      "color": "#34D399",
+      "concepts": [
+        {
+          "label": "The five stages",
+          "href": "courses/01-no-shared-key.html"
+        },
+        {
+          "label": "n(n-1)/2",
+          "href": "courses/01-no-shared-key.html"
+        },
+        {
+          "label": "Label pairs, not records",
+          "href": "courses/01-no-shared-key.html"
+        }
+      ]
+    },
+    {
+      "label": "Comparing strings\nhonestly",
+      "href": "courses/02-comparing-strings.html",
+      "color": "#FBBF24",
+      "concepts": [
+        {
+          "label": "Prefix capped at 4",
+          "href": "courses/02-comparing-strings.html"
+        },
+        {
+          "label": "Transposition costs",
+          "href": "courses/02-comparing-strings.html"
+        },
+        {
+          "label": "Soundex, 1918",
+          "href": "courses/02-comparing-strings.html"
+        }
+      ]
+    },
+    {
+      "label": "Fellegi-Sunter,\nand the band",
+      "href": "courses/03-fellegi-sunter.html",
+      "color": "#FBBF24",
+      "concepts": [
+        {
+          "label": "m and u",
+          "href": "courses/03-fellegi-sunter.html"
+        },
+        {
+          "label": "Two thresholds",
+          "href": "courses/03-fellegi-sunter.html"
+        },
+        {
+          "label": "0.84 twice",
+          "href": "courses/03-fellegi-sunter.html"
+        }
+      ]
+    },
+    {
+      "label": "Blocking",
+      "href": "courses/04-blocking.html",
+      "color": "#FB923C",
+      "concepts": [
+        {
+          "label": "Pair completeness",
+          "href": "courses/04-blocking.html"
+        },
+        {
+          "label": "Reduction ratio",
+          "href": "courses/04-blocking.html"
+        },
+        {
+          "label": "Nine percent, gone",
+          "href": "courses/04-blocking.html"
+        }
+      ]
+    },
+    {
+      "label": "Judging\nit",
+      "href": "courses/05-judging-it.html",
+      "color": "#FB923C",
+      "concepts": [
+        {
+          "label": "Never report accuracy",
+          "href": "courses/05-judging-it.html"
+        },
+        {
+          "label": "Pairs vs clusters",
+          "href": "courses/05-judging-it.html"
+        },
+        {
+          "label": "Chaining over-merges",
+          "href": "courses/05-judging-it.html"
+        }
+      ]
+    },
+    {
+      "label": "Master data,\nand the refusal",
+      "href": "courses/06-master-data.html",
+      "color": "#F87171",
+      "concepts": [
+        {
+          "label": "Survivorship rules",
+          "href": "courses/06-master-data.html"
+        },
+        {
+          "label": "Four styles, no paper",
+          "href": "courses/06-master-data.html"
+        },
+        {
+          "label": "A refusal",
+          "href": "courses/06-master-data.html"
+        }
+      ]
+    }
+  ]
+};
+</script>
+<script src="assets/mindmap.js?v=1"></script>
+<script src="assets/app.js?v=1"></script>
+</body>
+</html>

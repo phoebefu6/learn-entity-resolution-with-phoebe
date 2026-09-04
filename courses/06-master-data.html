@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 6 of 6. Golden records and the four implementation styles, the tools that actually exist in 2026 with their real licences, privacy-preserving linkage with Bloom filters, and why linking two datasets is a decision with its own legal weight.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Master data, and the linkage you should not make - learn entity resolution with phoebe">
+<meta property="og:description" content="Session 6 of 6. Splink is MIT and current. Zingg is AGPL and that matters. And some linkages you can make and should not.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/courses/06-master-data.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Master data, and the linkage you should not make - learn entity resolution with phoebe">
+<meta name="twitter:description" content="Session 6 of 6. Golden records, four implementation styles, real tool licences, and the linkage you should refuse.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 6 · Master data, and the linkage you should not make - learn entity resolution with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-entity-resolution-with-phoebe</a> / Session 6 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Entity Resolution with Phoebe · Session 6 of 6</div>
+    <h1>Master data, and the linkage you should <span class="accent">not</span> make</h1>
+    <p class="sub">Five sessions built a matcher. Tonight decides what to do with what it finds: how a golden record actually gets assembled, which of four architectures should hold it, which open-source tools are real choices in 2026 and which carry a licence that bites later, and the one kind of linkage that is technically possible on Meridian's data and should not happen anyway. This is the capstone, and it closes on a refusal rather than a build.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Hands-on</span>
+      <span class="chip audience">Data engineers</span>
+      <span class="chip audience">Data leads and stewards</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:6">3-22 · Golden records and the four styles</span>
+      <span class="a3" style="flex:6">22-40 · Build-along: survivorship and a refusal</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where the course ends up</h2>
+    </div>
+    <p class="lede">Sessions 1 through 5 gave you a defensible way to decide that two records describe the same person, and a defensible way to score that decision. Neither one tells you what to do next: which value survives when three records disagree, where the merged truth should physically live, which of the tools claiming to do this are actually production-ready, and where the line sits between resolving your own customers and quietly re-identifying someone who never consented to it.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Survivorship rules you can defend in a design review, the four architectures a master data hub can take and which one fits Meridian, an honest map of which open-source ER tools you can actually adopt in 2026 and which licence will bite you later, and the discipline to write down a linkage you will not build even though the data lets you.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Master data has no Fellegi-Sunter, and that is worth saying out loud<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Session 3 rested on a named 1969 theory with a proof behind it. Tonight does not have that luxury, and pretending otherwise would be dishonest to you.</p>
+        <div class="callout warn">
+          <p><strong>There is no peer-reviewed MDM theory paper comparable to Fellegi-Sunter.</strong> Master data management is documented by analyst and vendor frameworks plus the DAMA-DMBOK practitioner standard, not by a formal academic literature. "Golden record" is industry-common vocabulary with no traceable originating citation. "Survivorship rules" is vendor-consensus terminology, not an academically canonical result. That does not make either one useless - they are genuinely useful, load-bearing concepts in every real MDM programme - it means you should teach them as practitioner knowledge, not dress them up as something they are not.</p>
+        </div>
+        <p>The honest framing for the rest of tonight: everything in Part 1 is what practitioners actually do and why it works, sourced to where it actually comes from.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why the course puts this session last on purpose<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>It would be easy to teach master data first, since "merge the duplicates into one record" sounds like the whole job. It is not, because survivorship rules and architecture choices are meaningless until you already trust which records are duplicates - which is everything sessions 1 through 5 built. Master data is the last mile precisely because it is downstream of every earlier decision, and a golden record built on a bad match is worse than no golden record at all.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers golden records and the four architectures</span>
+      <h2>Golden records, survivorship, and where the hub should sit</h2>
+      <span class="tag concept">9 min live</span>
+    </div>
+    <p class="lede">Once a cluster of records is agreed to be one person, something has to decide what that person's record actually says. That is survivorship, and then something has to decide where the answer lives relative to the source systems. That is the architecture choice.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three conflicting records resolving into one golden record, with the surviving value in each field labelled by the rule that chose it">
+        <style>
+          .e6aH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e6aK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e6aV { font: 400 12px Inter, sans-serif; fill: #1A2010; }
+          .e6aT { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .e6aC { font: 400 11px Inter, sans-serif; fill: #ECFCCB; }
+          .e6aR { font: 700 10px Inter, sans-serif; fill: #4A0D52; }
+          .e6aN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <text class="e6aH" x="30" y="26">THREE MERIDIAN RECORDS, ONE PERSON</text>
+
+        <rect x="20" y="40" width="270" height="140" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e6aK" x="36" y="62">CRM-A, 2021</text>
+        <text class="e6aV" x="36" y="86">email: s.whitfield@old.co</text>
+        <text class="e6aV" x="36" y="108">company: Old Co</text>
+        <text class="e6aV" x="36" y="130">mobile: 0412 118 822</text>
+        <text class="e6aV" x="36" y="152">address: 9 Bank Street</text>
+
+        <rect x="305" y="40" width="270" height="140" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e6aK" x="321" y="62">CRM-B, 2024</text>
+        <text class="e6aV" x="321" y="86">email: sarah.w@meridian.com</text>
+        <text class="e6aV" x="321" y="108">company: Meridian Holdings</text>
+        <text class="e6aV" x="321" y="130">mobile: (blank)</text>
+        <text class="e6aV" x="321" y="152">address: 9 Bank Street</text>
+
+        <rect x="590" y="40" width="270" height="140" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e6aK" x="606" y="62">Support, 2025</text>
+        <text class="e6aV" x="606" y="86">email: sarah.w@meridian.com</text>
+        <text class="e6aV" x="606" y="108">company: (blank)</text>
+        <text class="e6aV" x="606" y="130">mobile: 0412 118 822</text>
+        <text class="e6aV" x="606" y="152">address: 14 Rowan Court</text>
+
+        <rect x="150" y="204" width="580" height="120" rx="12" fill="#365314"/>
+        <text class="e6aT" x="440" y="228" text-anchor="middle">GOLDEN RECORD</text>
+        <text class="e6aC" x="176" y="252">email: sarah.w@meridian.com</text><text class="e6aR" x="480" y="252">most-recent (both agree anyway)</text>
+        <text class="e6aC" x="176" y="272">company: Meridian Holdings</text><text class="e6aR" x="480" y="272">most-recent, CRM-B postdates CRM-A</text>
+        <text class="e6aC" x="176" y="292">mobile: 0412 118 822</text><text class="e6aR" x="480" y="292">most-complete, CRM-B left it blank</text>
+        <text class="e6aC" x="176" y="312">address: 14 Rowan Court</text><text class="e6aR" x="480" y="312">most-recent, she moved after CRM-B</text>
+
+        <text class="e6aN" x="30" y="332">Four fields, three different rules. No single rule survives every field, which is the actual job.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - each field's winner is labelled by the rule that chose it, not by guesswork</figcaption>
+    </figure>
+
+    <p>The rules practitioners actually apply, and why each earns its place, not because a theorem says so but because the failure mode without it is obvious once named:</p>
+    <table class="clean">
+      <thead><tr><th>Survivorship rule</th><th>Picks</th><th>Fails when</th></tr></thead>
+      <tbody>
+        <tr><td>Most-recent</td><td>The newest updated value</td><td>A stale system happened to be touched last by an unrelated edit</td></tr>
+        <tr><td>Most-complete</td><td>Whichever record has the field filled in</td><td>Two records both have it filled in, and disagree</td></tr>
+        <tr><td>Source-priority</td><td>A ranked "system of truth" per field, e.g. HR owns legal name</td><td>The ranking was set once and nobody revisits it as systems change</td></tr>
+        <tr><td>Most-trusted-system</td><td>A system with better data-entry discipline, e.g. a billing system over a lead-capture form</td><td>Trust was never actually measured, only assumed</td></tr>
+      </tbody>
+    </table>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The four implementation styles, and where the hub sits<span class="mini">6 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Once you know what a golden record should say, you still have to decide where it lives relative to the systems that fed it. Four styles cover essentially every real MDM programme.</p>
+        <div class="callout warn">
+          <p>These four - <strong>Registry, Consolidation, Coexistence, Centralized (Transaction)</strong> - are attributed to <strong>Gartner</strong> consistently across five independent vendor sources, but no primary Gartner note could be fetched for this course; the source is paywalled. Present them as an analyst framework you will recognise in vendor pitches, never as an academic citation.</p>
+        </div>
+        <table class="clean">
+          <thead><tr><th>Style</th><th>Where authority sits</th><th>Fits Meridian when</th></tr></thead>
+          <tbody>
+            <tr><td>Registry</td><td>Hub holds only cross-reference and index data; sources keep the actual data</td><td>You need "which systems know this person" without moving any data</td></tr>
+            <tr><td>Consolidation</td><td>Hub matches and merges into golden records, usually one-way, for analytics</td><td>Reporting and dashboards need one clean view; sources keep operating independently</td></tr>
+            <tr><td>Coexistence</td><td>Golden records held centrally AND synced back bidirectionally</td><td>Sources should benefit from the cleaned-up data, not just feed it</td></tr>
+            <tr><td>Centralized / Transactional</td><td>The hub IS the system of record; sources have no independent authority</td><td>You are willing to retire the old systems' authority entirely</td></tr>
+          </tbody>
+        </table>
+
+        <figure class="zoomable">
+          <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The four implementation styles drawn as four diagrams of where authority sits between hub and sources: Registry, Consolidation, Coexistence, Centralized">
+            <style>
+              .e6bH { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+              .e6bK { font: 700 10px Inter, sans-serif; fill: #1A2010; }
+              .e6bT { font: 700 10px Inter, sans-serif; fill: #fff; }
+              .e6bD { font: 400 10px Inter, sans-serif; fill: #5F6B52; }
+              .e6bN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+            </style>
+            <defs>
+              <marker id="e6Br" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#65A30D"/></marker>
+              <marker id="e6Bl" markerWidth="7" markerHeight="7" refX="1" refY="3.5" orient="auto"><path d="M7,0 L0,3.5 L7,7 z" fill="#65A30D"/></marker>
+            </defs>
+
+            <text class="e6bH" x="30" y="26">Registry</text>
+            <rect x="30" y="40" width="80" height="34" rx="6" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+            <text class="e6bK" x="70" y="61" text-anchor="middle">Source A</text>
+            <rect x="30" y="86" width="80" height="34" rx="6" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+            <text class="e6bK" x="70" y="107" text-anchor="middle">Source B</text>
+            <line x1="114" y1="57" x2="150" y2="70" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Br)"/>
+            <line x1="114" y1="103" x2="150" y2="90" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Br)"/>
+            <rect x="154" y="55" width="70" height="50" rx="6" fill="none" stroke="#365314" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <text class="e6bK" x="189" y="76" text-anchor="middle">Hub</text>
+            <text class="e6bD" x="189" y="92" text-anchor="middle" font-size="8">index only</text>
+            <text class="e6bN" x="30" y="140">Data stays put; hub only knows who is who</text>
+
+            <text class="e6bH" x="250" y="26">Consolidation</text>
+            <rect x="250" y="40" width="80" height="34" rx="6" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+            <text class="e6bK" x="290" y="61" text-anchor="middle">Source A</text>
+            <rect x="250" y="86" width="80" height="34" rx="6" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+            <text class="e6bK" x="290" y="107" text-anchor="middle">Source B</text>
+            <line x1="334" y1="57" x2="368" y2="72" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Br)"/>
+            <line x1="334" y1="103" x2="368" y2="88" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Br)"/>
+            <rect x="372" y="55" width="80" height="50" rx="6" fill="#4D7C0F"/>
+            <text class="e6bT" x="412" y="76" text-anchor="middle">Hub</text>
+            <text class="e6bT" x="412" y="92" text-anchor="middle" font-size="8">golden, one-way</text>
+            <text class="e6bN" x="250" y="140">Merged for analytics; sources never see it</text>
+
+            <text class="e6bH" x="470" y="26">Coexistence</text>
+            <rect x="470" y="40" width="80" height="34" rx="6" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+            <text class="e6bK" x="510" y="61" text-anchor="middle">Source A</text>
+            <rect x="470" y="86" width="80" height="34" rx="6" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+            <text class="e6bK" x="510" y="107" text-anchor="middle">Source B</text>
+            <line x1="554" y1="55" x2="586" y2="66" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Br)"/>
+            <line x1="586" y1="76" x2="554" y2="65" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Bl)"/>
+            <line x1="554" y1="101" x2="586" y2="90" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Br)"/>
+            <line x1="586" y1="100" x2="554" y2="111" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Bl)"/>
+            <rect x="592" y="55" width="80" height="50" rx="6" fill="#4D7C0F"/>
+            <text class="e6bT" x="632" y="76" text-anchor="middle">Hub</text>
+            <text class="e6bT" x="632" y="92" text-anchor="middle" font-size="8">golden, synced</text>
+            <text class="e6bN" x="470" y="140">Both directions; sources benefit too</text>
+
+            <text class="e6bH" x="690" y="26">Centralized</text>
+            <rect x="690" y="55" width="80" height="50" rx="6" fill="#365314"/>
+            <text class="e6bT" x="730" y="76" text-anchor="middle">Hub</text>
+            <text class="e6bT" x="730" y="92" text-anchor="middle" font-size="8">the record</text>
+            <line x1="786" y1="57" x2="774" y2="66" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Bl)"/>
+            <line x1="786" y1="103" x2="774" y2="94" stroke="#65A30D" stroke-width="1.5" marker-end="url(#e6Bl)"/>
+            <rect x="790" y="40" width="80" height="34" rx="6" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+            <text class="e6bK" x="830" y="61" text-anchor="middle">Source A</text>
+            <rect x="790" y="86" width="80" height="34" rx="6" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+            <text class="e6bK" x="830" y="107" text-anchor="middle">Source B</text>
+            <text class="e6bN" x="690" y="140">Sources keep no authority</text>
+
+            <rect x="30" y="168" width="14" height="14" fill="#A21CAF"/>
+            <text class="e6bN" x="54" y="180">Authority moves left to right across these four: from fully distributed to fully centralized.</text>
+            <text class="e6bN" x="54" y="202">The right choice depends on whether Meridian is willing to retire its old systems, not on which is "best".</text>
+          </svg>
+          <figcaption>🔍 Click to zoom - the same question, four answers, in where authority actually sits</figcaption>
+        </figure>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where DAMA-DMBOK fits, and its own honesty note<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The <strong>DAMA-DMBOK</strong>, second edition, is the closest thing this discipline has to a standard textbook, and it deliberately combines Reference Data and Master Data into a single knowledge area rather than treating them separately. It defines reference data as data that helps classify or categorize other data - country codes, status codes, product categories - which master data then draws on.</p>
+        <div class="callout warn">
+          <p>The DMBOK text itself is a paid publication and was not fetched for this course. The chapter structure described here is secondary-sourced, from summaries and practitioner citations of the book rather than the primary text. Treat it as a reliable pointer to go read, not a verbatim quote.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the tooling that actually exists in 2026</span>
+      <h2>What you can adopt, and what will bite you in six months</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Licence and maintenance status decide whether a team can actually use a tool, not just whether it works in a demo. Both are checked here as of 2026, not assumed.</p>
+
+    <table class="clean">
+      <thead><tr><th>Tool</th><th>Approach</th><th>Licence</th><th>2026 status</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Splink</strong> (UK Ministry of Justice)</td><td>Fellegi-Sunter with EM estimation, DuckDB/Spark/Postgres backends</td><td><strong>MIT</strong></td><td>Actively maintained, Splink 4 current, won a UK Civil Service Award in 2025</td></tr>
+        <tr><td><strong>dedupe</strong> (Gregg and Eder)</td><td>Active learning, a human labels pairs y/n/u</td><td><strong>MIT</strong></td><td>Maintenance currency could not be confirmed - copyright notice seen only through 2022</td></tr>
+        <tr><td><strong>Python Record Linkage Toolkit</strong> (<code>recordlinkage</code>, de Bruin)</td><td>Indexing, comparison, classifiers including an ECM estimator</td><td><strong>BSD-3</strong></td><td>Maintained intermittently</td></tr>
+        <tr><td><strong>Zingg</strong></td><td>Active-learning MDM on Spark</td><td><strong>AGPL-3.0</strong></td><td>Actively maintained, v0.6.0 April 2026</td></tr>
+        <tr><td><strong>Febrl</strong> (Christen and Churches, ANU)</td><td>Early linkage toolkit</td><td>n/a</td><td>Not maintained; matters now for its synthetic benchmarks</td></tr>
+      </tbody>
+    </table>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Splink is the recommendation, and here is exactly why<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Splink</strong> is the tool this course would actually point a team at. It implements the same Fellegi-Sunter model session 3 taught, estimates the m and u probabilities with expectation-maximisation instead of guessing them, and runs on DuckDB, Spark or Postgres depending on scale. It is MIT licensed with no strings attached, actively maintained by a government team with a public track record, and it won a UK Civil Service Award for Innovation in 2025. Everything the bench on this page has been simulating in the browser, Splink does at real scale.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The licence point that kills an adoption six months in<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Zingg is AGPL-3.0.</strong> That is copyleft with real commercial implications, not a permissive licence like the other four tools here. AGPL's network clause means that if you run a modified version of Zingg as a service, even internally across a company boundary, you can be obligated to make your modifications available under the same licence. A team that adopts Zingg without a legal review, builds proprietary matching logic on top of it, and only reads the licence when a customer contract asks about it, is the exact six-months-later failure this course wants you to see coming instead.</p>
+        <p><strong>dedupe's flag is different in kind</strong>: nothing about its MIT licence is a problem, but its most recently observed copyright notice only goes through 2022, and current maintenance could not be confirmed for this course. An unmaintained MIT tool is a smaller risk than a maintained AGPL one, but it is still a risk you should check yourself before depending on it.</p>
+        <p><strong>Febrl</strong> is worth knowing for a different reason entirely: it is not maintained as software, but its synthetic benchmark datasets are still the reference point the field cites - Febrl1 (1,000 records, 500 pairs), Febrl3 (5,000 records), and Febrl4 (10,000 records, split into subsets 4a and 4b). The DBLP-ACM and Amazon-Google benchmarks, from the Magellan and deepmatcher research line, are used the same way; both are secondary references here, useful for finding real benchmark data rather than as tools to run.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the linkage you should not make</span>
+      <h2>What earns this session its title</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">Everything so far has assumed you should link the records you can link. This part is about the boundary: a technique for linking data without exposing it, the attack that technique has to be honest about, and the legal weight that the act of linking carries on its own, separate from whatever you do with the result.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bloom-filter encoding of q-grams into a bit array, with similarity computed on the bits and the frequency-attack surface marked">
+        <style>
+          .e6cH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e6cK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e6cV { font: 400 12px Inter, sans-serif; fill: #1A2010; }
+          .e6cT { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .e6cC { font: 400 11px Inter, sans-serif; fill: #ECFCCB; }
+          .e6cR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+          .e6cN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <text class="e6cH" x="30" y="26">PRIVACY-PRESERVING RECORD LINKAGE, BLOOM FILTER ENCODING</text>
+
+        <rect x="20" y="42" width="260" height="80" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e6cK" x="150" y="68" text-anchor="middle">"SARAH"</text>
+        <text class="e6cV" x="150" y="92" text-anchor="middle">q-grams: SA AR RA AH</text>
+
+        <text class="e6cV" x="310" y="88">hashed with</text>
+        <text class="e6cV" x="310" y="104">cryptographic hashes →</text>
+
+        <rect x="420" y="42" width="440" height="80" rx="10" fill="#365314"/>
+        <text class="e6cT" x="440" y="68">BIT ARRAY</text>
+        <text class="e6cC" x="440" y="90" font-family="monospace">0 1 1 0 1 0 0 1 1 0 0 1 0 1 0 1 1 0 0 1</text>
+        <text class="e6cC" x="440" y="108">no plaintext ever stored or transmitted</text>
+
+        <rect x="20" y="146" width="420" height="80" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e6cK" x="40" y="170">Dice similarity on two bit vectors</text>
+        <text class="e6cV" x="40" y="192">stands in for comparing the strings</text>
+        <text class="e6cV" x="40" y="212">quality reported comparable to plaintext matching</text>
+
+        <rect x="460" y="146" width="400" height="80" rx="10" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text class="e6cR" x="480" y="170">Known attack surface</text>
+        <text class="e6cV" x="480" y="192">bigram and value frequencies leak through</text>
+        <text class="e6cV" x="480" y="212">the bit patterns themselves</text>
+
+        <rect x="20" y="250" width="14" height="14" fill="#A21CAF"/>
+        <text class="e6cN" x="44" y="262">An attacker holding population name-frequency tables can re-identify frequent values from the pattern alone.</text>
+        <text class="e6cN" x="44" y="284">Composite or hardened Bloom filters are a proposed defence, not a closed problem.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the encoding hides the plaintext, and the frequency pattern is still a hole</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Privacy-preserving record linkage, and its honest limits<span class="mini">6 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Schnell, Bachteler and Reiher, BMC Medical Informatics and Decision Making 9:41, 2009, DOI 10.1186/1472-6947-9-41</strong>, is the primary, verified source for privacy-preserving record linkage with Bloom filters. Each field's q-grams get encoded into a bit array using cryptographic hashes, and similarity between two records is computed as Dice similarity on the bit vectors, without either party ever holding the other's plaintext. Reported match quality is comparable to matching on unencrypted identifiers, which is exactly why it is used in real cross-agency health linkage, where the whole point is that no single party should see identifiable data from the other side.</p>
+        <p>The honest second half: this technique has a real, actively studied attack surface. <strong>Frequency-based cryptanalysis</strong> exploits the fact that bigram and value frequencies leak through the bit patterns themselves - an attacker holding population name-frequency tables (common surnames appear often, rare ones appear rarely) can start re-identifying the frequent values from the pattern alone, even without breaking any hash.</p>
+        <div class="callout warn">
+          <p>The attack citation - <strong>Kuzu, Kantarcioglu, Durham and Malin, PETS 2011</strong> - is secondary here, not independently fetched for this course. Composite or hardened Bloom filters are a proposed defence against it. The honest summary to carry forward: PPRL is deployed in real cross-agency health linkage, and it has an actively studied attack surface at the same time. Neither fact cancels the other.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why linking is itself a legal act, not just a technical one<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The refusal this session is named for is not about Bloom filters, it is about a simpler fact: <strong>linking two previously separate datasets can turn data that was not reasonably identifiable on its own into identifiable personal data</strong>, and the act of linking is itself a new processing operation that needs its own lawful basis. A company that legitimately holds two datasets, each individually harmless, can create something legally sensitive purely by joining them - and Meridian's whole project is joining datasets.</p>
+        <div class="callout warn">
+          <p><strong>No GDPR clause names "record linkage" directly.</strong> This is a reasoned application of the identifiability and purpose-limitation principles already in the regulation, corroborated through a cohort-linkage scoping review rather than a single named article. Recital 71, on automated profiling, is adjacent to this idea but not identical to it, and should not be cited as if it were the source. <strong>PDPA-specific analysis was not researched for this course - say that plainly rather than guessing at how Singapore's regime would treat the same act.</strong></p>
+        </div>
+        <p>What this means in practice for Meridian: the fact that a support system and two CRMs can be joined does not settle whether they should be, for a given purpose. A resolved customer view built to fix billing is a different processing decision from the same resolved view built to score creditworthiness or infer health status from purchase history, even though the underlying match is identical. The purpose the linkage serves is the thing that needs its own lawful basis, not just the technical act of matching.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Write survivorship rules, choose an architecture, then write a refusal</h2>
+      <span class="tag demo">★ 18 min · everyone builds</span>
+    </div>
+    <p class="lede">No widget tonight - the tool is a blank page and the discipline from five sessions of measurement.</p>
+
+    <div class="steps">
+      <div class="step"><p>Pick three conflicting Meridian fields you can imagine across CRM-A, CRM-B and the support system - email, company, or phone are good choices. For each one, write down which survivorship rule you would apply (most-recent, most-complete, source-priority, most-trusted-system) and which source wins under that rule.</p></div>
+      <div class="step"><p>For each of the three fields, write one sentence on why that rule and not one of the other three. If two fields ended up using the same rule for different reasons, notice that and write the real reason down instead of reusing the first answer.</p></div>
+      <div class="step"><p>Pick one of the four implementation styles - Registry, Consolidation, Coexistence, Centralized - for Meridian's customer master. Justify it against what you know of Meridian's situation: multiple live source systems, a need for both accurate golden records and analytics, and no stated appetite yet to retire the old CRMs.</p></div>
+      <div class="step"><p>Name one thing your chosen style would make harder that a different style would make easier, and say whether that tradeoff is acceptable for Meridian specifically, not in the abstract.</p></div>
+      <div class="step"><p>Now write <strong>a refusal</strong>. Describe one linkage Meridian's resolved customer master could technically support - something the matched, clustered, golden-recorded data would make trivial to compute - and that the company should not build. State the reason in terms of <strong>purpose</strong>, not capability: not "we could get it wrong" but "this was never the purpose the data was linked for."</p></div>
+      <div class="step"><p>Read your refusal back and check it does not secretly say "this is technically hard" or "this might cause bad PR" instead of a purpose-limitation argument. If it does, rewrite it until the reason is about what the linkage was for, not about what might happen if someone found out.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p>A good refusal reads like a decision a data steward made on purpose, not like a risk the legal team vetoed after the fact. Aim for that tone: this is the boundary we chose, here is exactly why, and here is what we will do with the data instead.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Taking this further on your own data</h2>
+      <span class="tag exercise">25 min</span>
+    </div>
+    <ul>
+      <li>Take the labelled set you built for session 1's homework. Write a one-page survivorship policy for it: one rule per field, with the real reason stated, not just the rule name.</li>
+      <li>Install Splink and run its Fellegi-Sunter estimation over your labelled pairs. Compare its estimated m and u probabilities against whatever you guessed by hand in session 3.</li>
+      <li>Write your own linkage refusal for your own company's data, following the same test tonight's build-along used: state it in terms of purpose, not capability, and check it is not secretly a technical-difficulty or PR argument in disguise.</li>
+      <li>If your company operates anywhere GDPR applies, find out who currently owns the lawful-basis decision for any new data linkage project, and confirm that person actually knows a resolution project is planned.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Splink and Zingg are both open-source entity resolution tools. What is the practical difference in their licences?</p>
+      <button class="qopt" type="button">A · Both are MIT, so there is no practical difference</button>
+      <button class="qopt" type="button">B · Splink is MIT (permissive); Zingg is AGPL-3.0, which is copyleft with real commercial implications if you run a modified version as a service</button>
+      <button class="qopt" type="button">C · Zingg is MIT and Splink is the copyleft one</button>
+      <p class="qwhy">Splink is MIT licensed with no strings attached. Zingg is AGPL-3.0, whose network clause can obligate you to release modifications if you run a modified version as a service, even internally. A team that skips this check at adoption time discovers it later, usually when a customer contract asks about licensing.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">What is the honest status of "golden record", "survivorship rules" and the four Registry/Consolidation/Coexistence/Centralized implementation styles?</p>
+      <button class="qopt" type="button">A · All three are formally proven results, the MDM equivalent of Fellegi-Sunter</button>
+      <button class="qopt" type="button">B · They are unreliable folklore and should be avoided in a design review</button>
+      <button class="qopt" type="button">C · They are genuinely useful practitioner and vendor vocabulary - golden record has no traceable citation, survivorship rules are vendor-consensus terms, and the four styles trace to Gartner through vendor sources with no primary note fetchable - none of it is peer-reviewed, and all of it is worth knowing anyway</button>
+      <p class="qwhy">Master data management has no academic canon comparable to Fellegi-Sunter. That does not make the vocabulary useless - it is exactly what every real MDM programme uses - but it does mean presenting it honestly as analyst and practitioner consensus rather than dressing it up as academically proven.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Why does linking two previously separate, individually harmless datasets need its own lawful basis under GDPR, even if each dataset was collected properly?</p>
+      <button class="qopt" type="button">A · Because linking can turn data that was not reasonably identifiable alone into identifiable personal data, and the act of linking is itself a new processing operation</button>
+      <button class="qopt" type="button">B · Because GDPR Recital 71 names record linkage directly and requires a separate consent form</button>
+      <button class="qopt" type="button">C · It does not - if both source datasets were collected lawfully, no further basis is required</button>
+      <p class="qwhy">No GDPR clause names "record linkage" directly - this is a reasoned application of the identifiability and purpose-limitation principles, not a single named article, and Recital 71 on profiling is adjacent but not identical. The point stands regardless: two harmless-looking datasets can become sensitive purely by being joined, and the joining is a processing decision that needs its own justification, tied to the purpose it serves.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Schnell, Bachteler and Reiher, privacy-preserving record linkage with Bloom filters, BMC Med Inform Decis Mak 9:41 (2009)</span><span class="note">DOI 10.1186/1472-6947-9-41 - primary, verified</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Splink, dedupe, recordlinkage, Zingg and Febrl - licences and 2026 maintenance status</span><span class="note">Checked directly against each project's own licence file and release history</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">The four implementation styles, attributed to Gartner</span><span class="note">Consistent across five independent vendor sources; no primary Gartner note fetchable, paywalled</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">DAMA-DMBOK 2nd edition, Reference and Master Data knowledge area</span><span class="note">Text is paid and was not fetched; chapter structure is secondary-sourced</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Kuzu, Kantarcioglu, Durham and Malin, frequency-based cryptanalysis of Bloom filter linkage, PETS 2011</span><span class="note">Secondary - not independently fetched for this course</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Linkage as a new processing operation under GDPR's identifiability and purpose-limitation principles</span><span class="note">Reasoned application, corroborated via a cohort-linkage scoping review, not a single named clause; PDPA not researched</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Full source map with every URL and every verification caveat: <span class="mono">materials/official-course-map.md</span> in this repo.</p>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 6 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>No MDM canon</b><span>Golden record and survivorship rules are vendor and practitioner vocabulary, genuinely useful, not peer-reviewed.</span></div>
+      <div class="cheat-item"><b>Four styles</b><span>Registry (index only), Consolidation (one-way merge), Coexistence (synced both ways), Centralized (hub is the system of record). Gartner-attributed, not academic.</span></div>
+      <div class="cheat-item"><b>Recommend Splink</b><span>MIT, actively maintained, implements session 3's Fellegi-Sunter model with EM estimation.</span></div>
+      <div class="cheat-item"><b>Check the licence</b><span>Zingg is AGPL-3.0, copyleft with commercial implications. Splink, dedupe, recordlinkage are permissive.</span></div>
+      <div class="cheat-item"><b>PPRL is real and imperfect</b><span>Bloom filters hide plaintext and still leak through frequency patterns. Deployed and attacked at the same time.</span></div>
+      <div class="cheat-item"><b>Linking needs its own basis</b><span>Joining two harmless datasets can create identifiable data. The purpose of the join matters, not just the match quality.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Where to go from here</span>
+    <p>There is no session 7. What comes next is Splink against your own labelled set: install it, feed it the pairs you have been scoring by hand across six sessions, and let expectation-maximisation estimate the weights you have been reasoning about all along. The bench on these pages was built to teach the ideas at a scale you could hold in your head. Your own data is the scale that actually matters.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 6 of 6 · learn-entity-resolution-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="05-judging-it.html">← Previous: Judging it</a> &nbsp;·&nbsp; <a href="../index.html">All sessions →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

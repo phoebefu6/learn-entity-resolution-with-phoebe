@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 1 of 6. What breaks when two systems describe the same customer and share no key: the n-squared problem, the five stages of a resolution pipeline, and why a labelled set of 35 true pairs is the only thing that makes any of it measurable.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="No shared key - learn entity resolution with phoebe">
+<meta property="og:description" content="Session 1 of 6. 63 records, 32 real people, 1,953 possible pairs and no join column in sight.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/courses/01-no-shared-key.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="No shared key - learn entity resolution with phoebe">
+<meta name="twitter:description" content="Session 1 of 6. 63 records, 32 real people, and no join column in sight.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 1 · No shared key - learn entity resolution with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-entity-resolution-with-phoebe</a> / Session 1 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Entity Resolution with Phoebe · Session 1 of 6</div>
+    <h1>No shared <span class="accent">key</span></h1>
+    <p class="sub">Two CRMs and a support system all describe the same customers, and nothing joins them. There is no shared id, the emails disagree, half the phone numbers are formatted differently, and one person appears three times under two surnames. Tonight is the shape of that problem: 63 records covering 32 real people, 1,953 possible pairs, and the labelled truth that makes every later decision measurable rather than arguable.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Hands-on</span>
+      <span class="chip audience">Data engineers</span>
+      <span class="chip audience">Anyone merging two customer systems</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-24 · The shape of the problem</span>
+      <span class="a3" style="flex:4">24-40 · Build-along: label the truth</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>How this course works</h2>
+    </div>
+    <p class="lede">Six sessions, 45 minutes each, one artifact: a working matcher over <strong>Meridian</strong>, a company merging two CRMs and a support system into one customer master. Tonight frames the problem and the labels. Session 2 compares strings, session 3 scores pairs properly, session 4 makes it scale, session 5 judges it honestly, and session 6 decides what a golden record is and which linkages you should refuse to make.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> The five stages of a resolution pipeline and which of them can lose a pair permanently. The arithmetic that makes brute force impossible sooner than people expect. And a labelled set you can actually score against, which is the difference between tuning a matcher and guessing at one.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The join that is not there<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every join you have ever written assumed a key that both sides agreed on. Entity resolution is the work that starts when there is no such column, and the only evidence that two rows are the same person is that they look similar. The moment you accept that, three things follow that never apply to a normal join.</p>
+        <ul>
+          <li><strong>The answer is probabilistic.</strong> Two rows are not equal or unequal, they are more or less likely to be the same person. Some pairs will be genuinely undecidable from the data you hold, and no amount of cleverness changes that.</li>
+          <li><strong>The work is quadratic.</strong> A join walks an index. Comparing every row against every other row grows with the square of the table.</li>
+          <li><strong>It has to be measured against labels.</strong> Without a set of pairs you know the answer for, "the matcher got better" is an opinion.</li>
+        </ul>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Meridian's finance team reports 4,100 active customers. Sales reports 3,600. Neither is wrong about its own system, and both numbers go in the same board pack. Nobody can say which is closer to the number of actual companies, because nothing in either system knows that Northwind Ltd and Northwind Limited are one account.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary for the whole arc<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Record</strong> - one row in one system. <strong>Entity</strong> - one real person or company, which may appear as several records.</li>
+          <li><strong>Pair</strong> - two records being considered. The unit of almost all the arithmetic in this course.</li>
+          <li><strong>Blocking</strong> - cheaply throwing away pairs that are obviously not worth comparing. Session 4.</li>
+          <li><strong>Match weight</strong> - a score for how much the evidence favours a pair being the same entity. Session 3.</li>
+          <li><strong>Clerical review</strong> - the band of pairs the system refuses to decide, which go to a human. Session 3, and the whole point of the course.</li>
+          <li><strong>Golden record</strong> - the single surviving version of an entity, assembled from the records that matched. Session 6.</li>
+        </ul>
+        <p>One term deliberately avoided: "deduplication". It implies the duplicates are obvious and the job is deleting them. Neither is usually true, and the framing hides the decision that matters.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the pipeline and where pairs are lost</span>
+      <h2>Five stages, and only one of them is reversible</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Every resolution system, from a hand-written script to Splink, has the same five stages. Knowing which stage can throw away a true pair for good is what stops you tuning the wrong one for a week.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Five pipeline stages from records through blocking, comparison, scoring and decision to clustering, showing that a pair discarded at blocking can never be recovered downstream">
+        <style>
+          .e1aT { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .e1aK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e1aC { font: 400 11px Inter, sans-serif; fill: #ECFCCB; }
+          .e1aD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e1aN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+          .e1aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="e1Ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#CBD5C0"/></marker>
+        </defs>
+
+        <rect x="20" y="60" width="140" height="62" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e1aK" x="90" y="86" text-anchor="middle">63 records</text>
+        <text class="e1aD" x="90" y="106" text-anchor="middle">3 systems</text>
+
+        <line x1="164" y1="91" x2="196" y2="91" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e1Ar)"/>
+
+        <rect x="200" y="60" width="140" height="62" rx="10" fill="#A21CAF"/>
+        <text class="e1aT" x="270" y="86" text-anchor="middle">Blocking</text>
+        <text class="e1aC" x="270" y="106" text-anchor="middle">drop cheap pairs</text>
+
+        <line x1="344" y1="91" x2="376" y2="91" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e1Ar)"/>
+
+        <rect x="380" y="60" width="140" height="62" rx="10" fill="#65A30D"/>
+        <text class="e1aT" x="450" y="86" text-anchor="middle">Comparison</text>
+        <text class="e1aC" x="450" y="106" text-anchor="middle">field similarity</text>
+
+        <line x1="524" y1="91" x2="556" y2="91" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e1Ar)"/>
+
+        <rect x="560" y="60" width="140" height="62" rx="10" fill="#4D7C0F"/>
+        <text class="e1aT" x="630" y="86" text-anchor="middle">Score and decide</text>
+        <text class="e1aC" x="630" y="106" text-anchor="middle">match weight</text>
+
+        <line x1="704" y1="91" x2="736" y2="91" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e1Ar)"/>
+
+        <rect x="740" y="60" width="120" height="62" rx="10" fill="#365314"/>
+        <text class="e1aT" x="800" y="86" text-anchor="middle">Clustering</text>
+        <text class="e1aC" x="800" y="106" text-anchor="middle">into entities</text>
+
+        <rect x="200" y="160" width="140" height="70" rx="10" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text class="e1aR" x="270" y="182" text-anchor="middle">Gone for good</text>
+        <text class="e1aD" x="270" y="200" text-anchor="middle">a pair dropped here</text>
+        <text class="e1aD" x="270" y="218" text-anchor="middle">is never scored</text>
+        <line x1="270" y1="126" x2="270" y2="156" stroke="#FCA5A5" stroke-width="2" marker-end="url(#e1Ar)"/>
+
+        <rect x="560" y="160" width="300" height="70" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e1aK" x="580" y="182">Recoverable</text>
+        <text class="e1aD" x="580" y="200">move a threshold and the decision changes;</text>
+        <text class="e1aD" x="580" y="218">nothing was thrown away, only classified</text>
+        <line x1="630" y1="126" x2="630" y2="156" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e1Ar)"/>
+
+        <rect x="20" y="292" width="14" height="14" fill="#A21CAF"/>
+        <text class="e1aN" x="44" y="304">Tune the threshold all week and you cannot recover a pair blocking already discarded.</text>
+        <text class="e1aN" x="44" y="326">Which is why session 4 measures blocking by how many true pairs it keeps, not by how fast it is.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the first stage is the one that cannot be undone</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Where the field started, and why it was medical<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The first published probabilistic approach is <strong>Newcombe, Kennedy, Axford and James, "Automatic Linkage of Vital Records", Science, October 1959</strong>. The problem was linking birth, marriage and death records for Canadian health statistics, where there was no shared identifier and the stakes were epidemiological rather than commercial.</p>
+        <p>Their move was the one this whole course rests on: rather than asking whether two records agree, compute how much each field's agreement should <em>shift your belief</em>, and combine those shifts. Ten years later Fellegi and Sunter turned that into a formal decision theory, which is session 3.</p>
+        <div class="callout tip">
+          <p>It is worth knowing the origin is 1959 and not 2015. Entity resolution gets sold as a machine-learning problem, and the learning part is genuinely useful, but the core model predates it by decades and is still what the good tools implement.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why "just clean the data first" does not work<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The instinct is to normalise everything until the rows match exactly, then join. It helps, and session 2 does a lot of it, but it cannot finish the job for a structural reason: <strong>normalisation is lossy and you do not know in advance which loss matters</strong>.</p>
+        <p>Fold "Katherine" and "Catherine" together and you correctly join one pair in Meridian and incorrectly risk joining two different people elsewhere. Strip company suffixes and Northwind Ltd matches Northwind Limited, which is right, and also matches a different Northwind that is a separate legal entity, which is wrong. Every normalisation is a bet about which differences are noise.</p>
+        <p>The probabilistic framing keeps the bet visible and priced. Instead of destroying the difference, you say how much a difference on this field should count, and that number is estimable from data.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the arithmetic that forces blocking</span>
+      <h2>The pairs grow as the square, and they grow fast</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">Meridian is small enough to compare exhaustively, which makes it a good teaching set and a misleading one. The number of pairs is n times n minus one over two, and that expression stops being comfortable at a size most companies passed years ago.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A table of record counts against pair counts, showing 63 records giving 1953 pairs, 10000 giving about 50 million, and 1 million giving about 500 billion">
+        <style>
+          .e1bH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e1bK { font: 700 13px Inter, sans-serif; fill: #1A2010; }
+          .e1bV { font: 800 13px Inter, sans-serif; fill: #365314; }
+          .e1bR { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .e1bD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e1bN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <text class="e1bH" x="40" y="46">RECORDS</text>
+        <text class="e1bH" x="230" y="46">PAIRS TO COMPARE</text>
+        <text class="e1bH" x="470" y="46">AT 100,000 PAIRS PER SECOND</text>
+
+        <rect x="30" y="58" width="820" height="40" rx="8" fill="#F7FEE7"/>
+        <text class="e1bK" x="44" y="83">63</text>
+        <text class="e1bV" x="230" y="83">1,953</text>
+        <text class="e1bD" x="470" y="83">instant - this is Meridian, and it flatters you</text>
+
+        <rect x="30" y="104" width="820" height="40" rx="8" fill="#F7FEE7"/>
+        <text class="e1bK" x="44" y="129">1,000</text>
+        <text class="e1bV" x="230" y="129">499,500</text>
+        <text class="e1bD" x="470" y="129">5 seconds</text>
+
+        <rect x="30" y="150" width="820" height="40" rx="8" fill="#F7FEE7"/>
+        <text class="e1bK" x="44" y="175">10,000</text>
+        <text class="e1bV" x="230" y="175">49,995,000</text>
+        <text class="e1bD" x="470" y="175">8 minutes</text>
+
+        <rect x="30" y="196" width="820" height="40" rx="8" fill="#FDF4FF"/>
+        <text class="e1bK" x="44" y="221">100,000</text>
+        <text class="e1bR" x="230" y="221">4,999,950,000</text>
+        <text class="e1bD" x="470" y="221">14 hours</text>
+
+        <rect x="30" y="242" width="820" height="40" rx="8" fill="#FEF2F2"/>
+        <text class="e1bK" x="44" y="267">1,000,000</text>
+        <text class="e1bR" x="230" y="267">499,999,500,000</text>
+        <text class="e1bD" x="470" y="267">58 days</text>
+
+        <rect x="30" y="304" width="14" height="14" fill="#A21CAF"/>
+        <text class="e1bN" x="54" y="316">Ten times the records is a hundred times the work. A customer table is past this by year two.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the reason blocking is not an optimisation but a requirement</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The other consequence: almost every pair is a non-match<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>In Meridian there are 35 true pairs among 1,953 possible ones, so <strong>1.8 percent</strong> of pairs are matches. That ratio does not stay still as the data grows, it collapses: true pairs grow roughly in line with the number of records, while total pairs grow with the square.</p>
+        <p>This has a consequence people trip over constantly. A model that answers "not a match" to every single pair is right about 98.2 percent of the time on Meridian, and would be right about 99.99 percent of the time on a million records. <strong>Accuracy is not a usable metric here</strong>, and session 5 shows the bench reporting it next to F1 so the gap is visible rather than described.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>A vendor demo that reports "99.4 percent accurate" on a deduplication task has told you almost nothing, and may have told you it does not work. Ask for precision and recall on matched pairs, and ask how many true pairs the labelled set contained.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers the labels</span>
+      <h2>You cannot tune what you cannot score</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">Meridian comes with an answer key: every record carries the id of the real person it describes. That is what turns every later choice into a measurement. Getting such a key for your own data is manual, boring, and the highest-value work in the project.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two Meridian records for Robert Chen compared field by field, showing which fields agree exactly, which agree only after normalisation, and which disagree">
+        <style>
+          .e1cH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e1cK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e1cV { font: 400 12px Inter, sans-serif; fill: #1A2010; }
+          .e1cG { font: 700 11px Inter, sans-serif; fill: #166534; }
+          .e1cA { font: 700 11px Inter, sans-serif; fill: #4A0D52; }
+          .e1cN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <text class="e1cH" x="30" y="40">FIELD</text>
+        <text class="e1cH" x="150" y="40">RECORD r01</text>
+        <text class="e1cH" x="410" y="40">RECORD r02</text>
+        <text class="e1cH" x="670" y="40">AGREES?</text>
+
+        <rect x="20" y="52" width="840" height="38" rx="8" fill="#F7FEE7"/>
+        <text class="e1cK" x="30" y="76">name</text>
+        <text class="e1cV" x="150" y="76">Robert Chen</text>
+        <text class="e1cV" x="410" y="76">Bob Chen</text>
+        <text class="e1cA" x="670" y="76">only after a nickname list</text>
+
+        <rect x="20" y="94" width="840" height="38" rx="8" fill="#F7FEE7"/>
+        <text class="e1cK" x="30" y="118">email</text>
+        <text class="e1cV" x="150" y="118">r.chen@northwind</text>
+        <text class="e1cV" x="410" y="118">r.chen@northwind</text>
+        <text class="e1cG" x="670" y="118">exactly</text>
+
+        <rect x="20" y="136" width="840" height="38" rx="8" fill="#F7FEE7"/>
+        <text class="e1cK" x="30" y="160">phone</text>
+        <text class="e1cV" x="150" y="160">0412 336 908</text>
+        <text class="e1cV" x="410" y="160">+61 412 336 908</text>
+        <text class="e1cA" x="670" y="160">only after normalising</text>
+
+        <rect x="20" y="178" width="840" height="38" rx="8" fill="#F7FEE7"/>
+        <text class="e1cK" x="30" y="202">address</text>
+        <text class="e1cV" x="150" y="202">14 Alder Street</text>
+        <text class="e1cV" x="410" y="202">14 Alder St</text>
+        <text class="e1cA" x="670" y="202">only after expanding St</text>
+
+        <rect x="20" y="220" width="840" height="38" rx="8" fill="#F7FEE7"/>
+        <text class="e1cK" x="30" y="244">company</text>
+        <text class="e1cV" x="150" y="244">Northwind Ltd</text>
+        <text class="e1cV" x="410" y="244">Northwind Limited</text>
+        <text class="e1cA" x="670" y="244">only after dropping suffix</text>
+
+        <rect x="20" y="292" width="14" height="14" fill="#A21CAF"/>
+        <text class="e1cN" x="44" y="304">One field in five agrees as typed. An exact join finds this pair only through the email.</text>
+        <text class="e1cN" x="44" y="326">Change one system to hash its emails and the join finds nothing at all.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - four of five fields need work before they agree</figcaption>
+    </figure>
+
+    <div class="er-wrap" id="er-records"></div>
+
+    <p class="mono" style="margin-top:14px">63 records, 32 real people. Records sharing a true id are the same person.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What the dirt actually is<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Read the table above and you can see every failure mode this course has to handle. None of it is exotic; all of it is what happens when humans type into three systems over five years.</p>
+        <table class="clean">
+          <thead><tr><th>Kind of difference</th><th>In Meridian</th><th>Handled in</th></tr></thead>
+          <tbody>
+            <tr><td>Nickname</td><td>Robert and Bob Chen, Michael and Mike Okonkwo</td><td>Session 2, normalisation</td></tr>
+            <tr><td>Spelling of the same sound</td><td>Priya Nair and Priya Nayar, Smith and Smyth</td><td>Session 2, phonetics</td></tr>
+            <tr><td>Transliteration</td><td>Thomas Muller and Thomas Mueller</td><td>Session 2</td></tr>
+            <tr><td>Married or changed surname</td><td>Sarah Whitfield and Sarah Whitfield-Barnes</td><td>Session 3, weights</td></tr>
+            <tr><td>Token order</td><td>Wei Zhang and Zhang Wei</td><td>Session 2, token sets</td></tr>
+            <tr><td>Transposed digits</td><td>Chidi Nwosu's phone, 780 against 708</td><td>Session 2, edit distance</td></tr>
+            <tr><td>Abbreviated street</td><td>Alder Street and Alder St, Court and Ct</td><td>Session 2, normalisation</td></tr>
+            <tr><td>Work against personal address</td><td>Elena Petrova's two emails</td><td>Session 3, weights</td></tr>
+            <tr><td>Missing value</td><td>Aisha Bello's second record has no email</td><td>Session 3, carries no evidence</td></tr>
+            <tr><td>Different people who look alike</td><td>Two unrelated Maria Gonzalez, Robert Chen and Robert Chan</td><td>Session 5, false matches</td></tr>
+            <tr><td>Genuinely undecidable</td><td>Two James Whitmore sharing a landline</td><td>Session 3, the clerical band</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>How to get labels for your own data<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>You will not label every pair, and you do not need to. What works:</p>
+        <ul>
+          <li><strong>Sample from the middle, not the ends.</strong> Pairs that obviously match and pairs that obviously do not teach you nothing. Label the ones a rough first pass scored near its threshold, because that is where every future decision lives.</li>
+          <li><strong>Label pairs, not records.</strong> The question "are these two the same" is answerable. "Which entity is this" is not, until you already have the answer.</li>
+          <li><strong>Two labellers on a subset.</strong> Where two careful humans disagree, no matcher will do better, and that disagreement rate is a floor on your achievable accuracy. It is also the honest size of your clerical band.</li>
+          <li><strong>Record why.</strong> A label with a one-line reason survives the person who made it leaving. A bare yes or no does not.</li>
+          <li><strong>Keep it frozen.</strong> A labelled set you quietly fix whenever the matcher disagrees is not a measurement any more, it is a mirror.</li>
+        </ul>
+        <p>The <code>dedupe</code> library builds its training set this way deliberately, asking a human to label the pairs it is least sure about rather than a random sample. That is active learning, and it is the right instinct even when done by hand in a spreadsheet.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Label five pairs by hand, then check yourself</h2>
+      <span class="tag demo">★ 16 min · everyone builds</span>
+    </div>
+    <p class="lede">Before any algorithm, do the job manually. It takes four minutes and it changes what you expect from the rest of the course.</p>
+
+    <div class="steps">
+      <div class="step"><p>In the table above, find <strong>r01 and r02</strong>. Decide: same person or not? Write down which fields convinced you, and in what order you looked at them.</p></div>
+      <div class="step"><p>Now <strong>r03 and r04</strong>, Katherine and Catherine Doyle. Same phone, same address, different first letter of the first name, different email domain. Decide, and note how confident you are as a percentage.</p></div>
+      <div class="step"><p>Now <strong>r05 and r59</strong>. Both are called Maria Gonzalez. Look at the emails, phones and addresses before deciding. They are <em>different people</em>, and the name is the field that misled you.</p></div>
+      <div class="step"><p>Now <strong>r13 and r63</strong>, two records for Sarah Whitfield. Only the mobile agrees; the email, address and company all differ because she changed jobs and moved. Decide, and note your confidence.</p></div>
+      <div class="step"><p>Finally <strong>r61 and r62</strong>, two records for James Whitmore. Same name, same landline, different companies, different addresses, different emails. Decide. If you feel you cannot, that is the correct answer, and session 3 gives that feeling a formal home.</p></div>
+      <div class="step"><p>Compare your five answers against the true ids in the table. Then count: <strong>which fields did you actually use</strong>, and did you weight them equally? Almost nobody does. You leaned on the phone and distrusted the name, and session 3 turns that instinct into estimated numbers.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p>Keep the note about your confidence on the Doyle and Whitmore pairs. In session 3 you will find that the model puts one of them well above its match threshold and the other in the band it refuses to decide, and it is worth knowing whether your own judgement agreed before you saw the arithmetic.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 2</h2>
+      <span class="tag exercise">25 min</span>
+    </div>
+    <ul>
+      <li>Take two systems in your own company that hold the same customers or people. Pull 40 records from each and put them in one sheet.</li>
+      <li>Count the possible pairs with n times n minus one over two. Then work out what that number becomes at ten times the volume.</li>
+      <li><strong>Label 20 pairs by hand</strong>, chosen so that about half are hard. Record a one-line reason for each. This is your answer key and everything later is scored against it.</li>
+      <li>Write down which single field you trusted most while labelling, and which field lied to you at least once. Session 3 estimates exactly those two things as numbers.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Which pipeline stage can lose a true pair in a way no later tuning can recover?</p>
+      <button class="qopt" type="button">A · Scoring, because a low weight cannot be raised afterwards</button>
+      <button class="qopt" type="button">B · Blocking, because a pair it discards is never compared at all</button>
+      <button class="qopt" type="button">C · Clustering, because connected components cannot be undone</button>
+      <p class="qwhy">Blocking is the irreversible stage. Scoring and the decision are recoverable by moving a threshold, and clustering can be rerun. A pair blocking drops is never scored, so no amount of threshold tuning brings it back. That is why session 4 measures blocking by pair completeness first.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">Meridian has 35 true pairs among 1,953 possible pairs. What does a model that answers "not a match" to every pair score?</p>
+      <button class="qopt" type="button">A · About 50 percent accuracy, since it never finds anything</button>
+      <button class="qopt" type="button">B · Zero, because precision is undefined</button>
+      <button class="qopt" type="button">C · About 98 percent accuracy, which is why accuracy is not reported in this field</button>
+      <p class="qwhy">It gets every one of the 1,918 non-pairs right, so accuracy is about 98.2 percent while it finds nothing at all. The ratio only gets worse as data grows, which is why the field reports precision and recall on matched pairs instead.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Records r05 and r59 are both "Maria Gonzalez" and are different people. What does that establish?</p>
+      <button class="qopt" type="button">A · That a name agreement is weak evidence, so fields must be weighted rather than trusted equally</button>
+      <button class="qopt" type="button">B · That the labelled set contains an error which should be corrected</button>
+      <button class="qopt" type="button">C · That names should be dropped from the comparison entirely</button>
+      <p class="qwhy">Two unrelated people share a common name, which is exactly why an agreement on name shifts belief far less than an agreement on a phone number. Session 3 estimates that difference as the ratio of two probabilities rather than asserting it, and dropping the field would throw away real evidence.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Newcombe, Kennedy, Axford and James, Automatic Linkage of Vital Records (Science, 1959)</span><span class="note">The origin of the probabilistic approach, and why the first application was vital statistics</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">The five-stage pipeline and the quadratic pair count</span><span class="note">Standard structure across the literature and every current tool; the arithmetic is computed, not cited</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Fellegi and Sunter, A Theory for Record Linkage (JASA, 1969)</span><span class="note">Named tonight as the formalisation of Newcombe; taught in full in session 3</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Active learning for label selection, as used by the dedupe library</span><span class="note">The label-the-uncertain-pairs instinct is introduced; the library itself is covered in session 6</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Full source map with every URL and every verification caveat: <span class="mono">materials/official-course-map.md</span> in this repo.</p>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 1 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The five stages</b><span>Records, blocking, comparison, score and decide, clustering. Only blocking is irreversible.</span></div>
+      <div class="cheat-item"><b>The pair count</b><span>n(n-1)/2. Ten times the records is a hundred times the work. 63 records is 1,953 pairs.</span></div>
+      <div class="cheat-item"><b>Meridian</b><span>63 records, 32 real people, 35 true pairs. 1.8 percent of pairs are matches.</span></div>
+      <div class="cheat-item"><b>Never report accuracy</b><span>Answering "no match" to everything scores 98.2 percent here and finds nothing.</span></div>
+      <div class="cheat-item"><b>Labels first</b><span>Label pairs not records, sample the hard middle, record the reason, and never quietly edit them.</span></div>
+      <div class="cheat-item"><b>The name lies</b><span>Two unrelated Maria Gonzalez. A phone agreement is worth far more than a name agreement.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>Before any pair can be scored, "how similar are these two strings" needs an actual number. Session 2 builds seven of them, from edit distance to the 1918 Soundex patents, and finds the case where each one is confidently wrong - including the one where Jaro-Winkler's famous prefix boost cannot help at all.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 1 of 6 · learn-entity-resolution-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="02-comparing-strings.html">Next: Comparing strings honestly →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/er-live.js?v=1"></script>
+</body>
+</html>

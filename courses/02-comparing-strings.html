@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 2 of 6. Seven ways to score how similar two strings are, each with the real definition and the exact case where it is confidently wrong - including why Jaro-Winkler's famous prefix boost cannot help when Katherine meets Catherine.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Comparing strings honestly - learn entity resolution with phoebe">
+<meta property="og:description" content="Session 2 of 6. Seven string measures, seven concrete failures, and a live lab where you type the strings.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/courses/02-comparing-strings.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Comparing strings honestly - learn entity resolution with phoebe">
+<meta name="twitter:description" content="Session 2 of 6. Seven string measures, and the case where each one is confidently wrong.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 2 · Comparing strings honestly - learn entity resolution with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-entity-resolution-with-phoebe</a> / Session 2 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Entity Resolution with Phoebe · Session 2 of 6</div>
+    <h1>Comparing strings <span class="accent">honestly</span></h1>
+    <p class="sub">Before any pair can be scored, "how similar are these two strings" needs an actual number. Tonight builds seven of them, from a 1965 edit-distance paper to a pair of 1918 patents, and pairs each one with the exact case where it is confidently wrong. That pairing is the whole session: a measure without its failure mode is a tool you will misuse in production.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Hands-on</span>
+      <span class="chip audience">Data engineers</span>
+      <span class="chip audience">Anyone merging two customer systems</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-24 · Seven ways to compare</span>
+      <span class="a3" style="flex:4">24-40 · Build-along: break each measure</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we are</h2>
+    </div>
+    <p class="lede">Session 1 established the shape of the problem: 63 Meridian records, 32 real people, 1,953 possible pairs, and no column that joins them. Every one of those pairs will eventually need a similarity score on each field before anything can be weighed. Tonight is where that number comes from. Session 3 turns these scores into evidence with weights, session 4 makes comparison affordable at scale, and session 5 judges the whole thing honestly.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Seven similarity measures with their real definitions, the concrete case where each one lies to you, and a live lab where you type two strings and watch all seven recompute. You will also see why normalising data before comparing it is not a cleanup step, it is a bet with a real cost.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why one number is never enough<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Ask a room to say whether "Katherine" and "Catherine" are the same name and most people say yes instantly. Ask them to say by how much and the room goes quiet, because similarity is not one thing. An edit-distance measure, a phonetic code and a token-overlap measure all answer a different question, and each was built to catch a different kind of typing mistake.</p>
+        <ul>
+          <li><strong>Positional measures</strong> care where in the string the difference sits, and how many character-level operations it takes to fix it.</li>
+          <li><strong>Phonetic measures</strong> throw the spelling away entirely and compare how the word would sound if read aloud.</li>
+          <li><strong>Token measures</strong> throw the order away and compare which words appear, which is exactly wrong for edit distance and exactly right for a name typed in the wrong order.</li>
+        </ul>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Meridian's CRM export has "Chen Robert" in one system because a form asked for surname first, and "Robert Chen" in the other. An edit-distance measure sees almost nothing in common between those two strings. A token measure sees the same two words and calls it identical. Neither answer is wrong, they are answering different questions.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The lab you will use all night<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every number quoted from here on is read off the live widget lower in this page, not typed in by hand. Type any two strings into it and all seven measures recompute immediately, with the Soundex code for each printed underneath. Six presets are loaded to get you started - Katherine/Catherine, Mary Ann/Mray Ann, Robert Chen/Chen Robert, Thomas Muller/Thomas Mueller, Smith/Smyth, and Priya Nair/Priya Nayar - but the free-text boxes are the point. If a claim in this session sounds surprising, retype the pair yourself before you believe it.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the two edit distances</span>
+      <h2>Counting the operations it takes to fix a string</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Edit distance answers a literal question: how many single-character operations turn one string into the other. The two measures below differ only in which operations they allow, and that one difference decides whether a transposed pair of letters looks like a small mistake or a large one.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Turning Mray Ann into Mary Ann: Levenshtein needs a substitute and an insert or delete for a total cost of two, while Damerau-Levenshtein spends one transposition step and is done">
+        <style>
+          .e2aH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e2aK { font: 700 13px Inter, sans-serif; fill: #1A2010; }
+          .e2aC { font: 400 12px Inter, sans-serif; fill: #1A2010; }
+          .e2aT { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .e2aS { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e2aR { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .e2aG { font: 800 13px Inter, sans-serif; fill: #166534; }
+          .e2aN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <defs>
+          <marker id="e2Ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#CBD5C0"/></marker>
+        </defs>
+
+        <text class="e2aH" x="30" y="34">LEVENSHTEIN - SUBSTITUTE AND INSERT/DELETE ONLY</text>
+        <rect x="20" y="46" width="220" height="46" rx="8" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2aK" x="130" y="74" text-anchor="middle">M r a y  A n n</text>
+        <line x1="250" y1="69" x2="290" y2="69" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e2Ar)"/>
+        <text class="e2aS" x="270" y="56" text-anchor="middle">sub r-&gt;a</text>
+        <rect x="296" y="46" width="220" height="46" rx="8" fill="#FEF2F2" stroke="#FCA5A5"/>
+        <text class="e2aK" x="406" y="74" text-anchor="middle">M a a y  A n n</text>
+        <line x1="526" y1="69" x2="566" y2="69" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e2Ar)"/>
+        <text class="e2aS" x="546" y="56" text-anchor="middle">sub a-&gt;r</text>
+        <rect x="572" y="46" width="220" height="46" rx="8" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2aK" x="682" y="74" text-anchor="middle">M a r y  A n n</text>
+        <text class="e2aR" x="810" y="74" text-anchor="middle">cost 2</text>
+
+        <text class="e2aH" x="30" y="132">DAMERAU-LEVENSHTEIN - ADDS ONE TRANSPOSITION STEP</text>
+        <rect x="20" y="144" width="220" height="46" rx="8" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2aK" x="130" y="172" text-anchor="middle">M r a y  A n n</text>
+        <line x1="250" y1="167" x2="290" y2="167" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e2Ar)"/>
+        <text class="e2aS" x="270" y="154" text-anchor="middle">swap r,a</text>
+        <rect x="296" y="144" width="220" height="46" rx="8" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2aK" x="406" y="172" text-anchor="middle">M a r y  A n n</text>
+        <text class="e2aG" x="700" y="172" text-anchor="middle">cost 1 - one adjacent-swap step</text>
+
+        <rect x="20" y="216" width="840" height="70" rx="10" fill="#FDF4FF" stroke="#F0ABFC" stroke-width="1"/>
+        <text class="e2aC" x="40" y="240"><tspan font-weight="700">Same two words, two different costs.</tspan> Levenshtein has no transposition</text>
+        <text class="e2aC" x="40" y="258">operation, so a swapped pair of letters must be paid for as a substitute plus a</text>
+        <text class="e2aC" x="40" y="276">shift, doubling the apparent damage of the single most common typing slip.</text>
+
+        <rect x="20" y="304" width="14" height="14" fill="#A21CAF"/>
+        <text class="e2aN" x="44" y="316">Type Mary Ann against Mray Ann in the lab below and read both scores off it directly.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the only difference between the two measures is one operation, and it changes the score</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Levenshtein, and where it over-penalises<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Levenshtein distance</strong> (1965/66, published in Soviet Physics Doklady) is the minimum number of single-character insertions, deletions and substitutions needed to turn one string into the other. It is the oldest of tonight's measures and still the default most people reach for, because it needs no assumptions about language or pronunciation, only characters.</p>
+        <p>Its blind spot is exactly the mistake humans make most: swapping two adjacent letters. Levenshtein has no operation called "swap", so a transposition has to be expressed as a substitution plus an insertion or deletion, which prices it at <strong>2</strong> instead of the single slip it actually is. "Mary Ann" against "Mray Ann" is over-penalised for precisely this reason, and the lab below will show you the number.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Damerau-Levenshtein closes one gap, not all of them<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Damerau-Levenshtein</strong> (Damerau, 1964, Communications of the ACM) adds a fourth operation, transposing two adjacent characters, at a cost of 1. It is built directly from an empirical observation Damerau made about real typing errors: the overwhelming majority of single mistakes are one of insertion, deletion, substitution or an adjacent transposition, so a distance that prices all four correctly should track real typos far better than one that only has three.</p>
+        <p>It still has two limits worth naming. It is still positional - it does not know that "ph" and "f" can sound the same, or that "Muller" and "Mueller" are the same transliterated name spread across more than one adjacent swap. And it is still blind to phonetics entirely: nothing in either edit distance knows what a word sounds like, which is what Part 3 exists to fix.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers Jaro and Jaro-Winkler</span>
+      <h2>A prefix bonus that only helps at the start</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">Jaro-Winkler is the most quoted name-matching measure in the field, and also the most misunderstood, because its one clever idea - trust the start of a name more than the end - is also its one hard limit.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Jaro-Winkler formula decomposed: JW equals Jaro plus L times P times one minus Jaro, with L the common prefix length capped at 4 and P the prefix scale at 0.1, worked through for Katherine against Catherine where L is zero and the boost is zero">
+        <style>
+          .e2bH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e2bF { font: 700 15px Inter, sans-serif; fill: #1A2010; }
+          .e2bT { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .e2bC { font: 400 12px Inter, sans-serif; fill: #1A2010; }
+          .e2bD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e2bR { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .e2bN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <rect x="20" y="30" width="840" height="56" rx="10" fill="#365314"/>
+        <text class="e2bF" x="440" y="65" text-anchor="middle" fill="#ECFCCB">JW  =  Jaro  +  L &#215; P &#215; (1 - Jaro)</text>
+
+        <rect x="20" y="104" width="404" height="76" rx="10" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2bH" x="40" y="128">L - COMMON PREFIX LENGTH</text>
+        <text class="e2bC" x="40" y="150">Matching characters at the very start of</text>
+        <text class="e2bC" x="40" y="168">both strings, capped at 4 regardless of length.</text>
+
+        <rect x="456" y="104" width="404" height="76" rx="10" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2bH" x="476" y="128">P - PREFIX SCALE, DEFAULT 0.1</text>
+        <text class="e2bC" x="476" y="150">Winkler's chosen weight per prefix</text>
+        <text class="e2bC" x="476" y="168">character. Above 0.25 the score can exceed 1.</text>
+
+        <text class="e2bH" x="30" y="212">WORKED EXAMPLE - KATHERINE AGAINST CATHERINE</text>
+        <rect x="20" y="222" width="840" height="46" rx="8" fill="#FDF4FF" stroke="#F0ABFC"/>
+        <text class="e2bC" x="40" y="250">Common prefix: none - "K" vs "C" disagree immediately, so L = 0</text>
+
+        <rect x="20" y="278" width="270" height="60" rx="10" fill="#FEF2F2" stroke="#FCA5A5"/>
+        <text class="e2bR" x="155" y="304" text-anchor="middle">Boost = 0 &#215; 0.1 &#215; (1-Jaro)</text>
+        <text class="e2bD" x="155" y="322" text-anchor="middle">= 0, whatever Jaro already was</text>
+
+        <rect x="304" y="278" width="556" height="60" rx="10" fill="#F7FEE7" stroke="#D9F99D"/>
+        <text class="e2bC" x="324" y="300">JW collapses to plain Jaro here. The one mechanism built to</text>
+        <text class="e2bC" x="324" y="318">reward a matching start cannot fire when the start is where the</text>
+        <text class="e2bC" x="324" y="336">two names actually differ - read the live score in the lab below.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the prefix boost needs agreement exactly where Katherine and Catherine disagree</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Jaro first, then Winkler's addition<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Jaro similarity</strong> (1989) was built for short strings like personal names. It finds characters that match within a small window of each other's position, counts how many matched characters are out of order (transpositions), and combines match count and transposition count into a score between 0 and 1. Because matches only count within a window, it copes reasonably with characters shifting position by a little, and it copes badly with long strings where whole tokens have been reordered - a job token measures do far better, in Part 3.</p>
+        <p><strong>Jaro-Winkler</strong> (Winkler, 1990) adds a bonus for agreement at the very start of the string: <code>JW = Jaro + L &#215; P &#215; (1 - Jaro)</code>, where <strong>L is the common prefix length, capped at 4 characters</strong>, and <strong>P is the prefix scale, 0.1 by default</strong>. The cap exists because Winkler found the earliest characters of a name are the most reliably typed ones in practice - a reasonable bet for Western given names, and the reason 0.1 is the default rather than something larger: push P above 0.25 and the formula can push the score above 1, which is not a valid similarity any more.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Type Katherine against Catherine into the lab. The names share seven of nine characters and would sound identical read aloud, yet the prefix disagrees in the very first letter, so L is 0 and the boost is exactly 0. Jaro-Winkler quietly becomes plain Jaro on this pair, which is lower than most people expect walking in. This is the best teaching moment in the whole session: the measure is famous for its prefix logic, and this is the pair where that logic contributes nothing.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where the prefix bet pays off, and where it does not<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The prefix assumption is not arbitrary, it is tuned to Western given and family names, where data-entry errors cluster toward the end of a long word and the first few letters are usually typed carefully and read carefully. That is a real, useful bias for a lot of Meridian's data. It stops being useful the moment the variation lives at the front: transliterated names, prefixed titles, and any name where two cultures romanise the leading sound differently will all get zero help from L, no matter how similar the rest of the string is.</p>
+        <p>The practical rule that falls out of this: Jaro-Winkler is a good default for Western personal names typed by a careless human, and a poor default for anything transliterated, anything token-reordered, or anything where the difference is structurally at the start. Know which kind of dirt you are looking at before trusting the prefix bonus to catch it.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers token, cosine and phonetic measures, plus normalisation</span>
+      <h2>Order, sound, and the bet you make before any of this runs</h2>
+      <span class="tag concept">8 min live</span>
+    </div>
+    <p class="lede">The last three measures throw something away on purpose - order, rarity, or spelling itself - and normalisation is the step that happens before any measure runs at all, quietly deciding what the comparison even sees.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A matrix of the seven measures against kinds of dirt in Meridian - nickname, transposition, token order, transliteration, phonetic spelling and company suffix - marking which measure handles which with a check or a cross">
+        <style>
+          .e2cH { font: 700 10px Inter, sans-serif; fill: #5F6B52; }
+          .e2cR { font: 700 11px Inter, sans-serif; fill: #1A2010; }
+          .e2cY { font: 800 13px Inter, sans-serif; fill: #166534; }
+          .e2cN { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .e2cT { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <text class="e2cH" x="20" y="20">MEASURE</text>
+        <text class="e2cH" x="176" y="20">TRANSPOSE</text>
+        <text class="e2cH" x="266" y="20">TOKEN ORDER</text>
+        <text class="e2cH" x="366" y="20">PHONETIC</text>
+        <text class="e2cH" x="456" y="20">TRANSLIT</text>
+        <text class="e2cH" x="546" y="20">SUFFIX/NOISE</text>
+        <text class="e2cH" x="656" y="20">TINY CORPUS</text>
+        <text class="e2cH" x="756" y="20">STARTS DIFFERENT</text>
+
+        <!-- rows -->
+        <g>
+          <rect x="20" y="30" width="840" height="34" rx="6" fill="#F7FEE7"/>
+          <text class="e2cR" x="30" y="52">Levenshtein</text>
+          <text class="e2cN" x="196" y="52">&#10007;</text><text class="e2cN" x="296" y="52">&#10007;</text><text class="e2cN" x="386" y="52">&#10007;</text><text class="e2cN" x="476" y="52">&#10007;</text><text class="e2cY" x="576" y="52">&#10003;</text><text class="e2cY" x="676" y="52">&#10003;</text><text class="e2cY" x="776" y="52">&#10003;</text>
+        </g>
+        <g>
+          <rect x="20" y="68" width="840" height="34" rx="6" fill="#fff"/>
+          <text class="e2cR" x="30" y="90">Damerau-Lev.</text>
+          <text class="e2cY" x="196" y="90">&#10003;</text><text class="e2cN" x="296" y="90">&#10007;</text><text class="e2cN" x="386" y="90">&#10007;</text><text class="e2cN" x="476" y="90">&#10007;</text><text class="e2cY" x="576" y="90">&#10003;</text><text class="e2cY" x="676" y="90">&#10003;</text><text class="e2cY" x="776" y="90">&#10003;</text>
+        </g>
+        <g>
+          <rect x="20" y="106" width="840" height="34" rx="6" fill="#F7FEE7"/>
+          <text class="e2cR" x="30" y="128">Jaro</text>
+          <text class="e2cY" x="196" y="128">&#10003;</text><text class="e2cN" x="296" y="128">&#10007;</text><text class="e2cN" x="386" y="128">&#10007;</text><text class="e2cN" x="476" y="128">&#10007;</text><text class="e2cY" x="576" y="128">&#10003;</text><text class="e2cY" x="676" y="128">&#10003;</text><text class="e2cY" x="776" y="128">&#10003;</text>
+        </g>
+        <g>
+          <rect x="20" y="144" width="840" height="34" rx="6" fill="#fff"/>
+          <text class="e2cR" x="30" y="166">Jaro-Winkler</text>
+          <text class="e2cY" x="196" y="166">&#10003;</text><text class="e2cN" x="296" y="166">&#10007;</text><text class="e2cN" x="386" y="166">&#10007;</text><text class="e2cN" x="476" y="166">&#10007;</text><text class="e2cY" x="576" y="166">&#10003;</text><text class="e2cY" x="676" y="166">&#10003;</text><text class="e2cN" x="776" y="166">&#10007;</text>
+        </g>
+        <g>
+          <rect x="20" y="182" width="840" height="34" rx="6" fill="#F7FEE7"/>
+          <text class="e2cR" x="30" y="204">Jaccard tokens</text>
+          <text class="e2cN" x="196" y="204">&#10007;</text><text class="e2cY" x="296" y="204">&#10003;</text><text class="e2cN" x="386" y="204">&#10007;</text><text class="e2cN" x="476" y="204">&#10007;</text><text class="e2cY" x="576" y="204">&#10003;</text><text class="e2cY" x="676" y="204">&#10003;</text><text class="e2cY" x="776" y="204">&#10003;</text>
+        </g>
+        <g>
+          <rect x="20" y="220" width="840" height="34" rx="6" fill="#fff"/>
+          <text class="e2cR" x="30" y="242">Cosine TF-IDF</text>
+          <text class="e2cN" x="196" y="242">&#10007;</text><text class="e2cY" x="296" y="242">&#10003;</text><text class="e2cN" x="386" y="242">&#10007;</text><text class="e2cN" x="476" y="242">&#10007;</text><text class="e2cY" x="576" y="242">&#10003;</text><text class="e2cN" x="676" y="242">&#10007;</text><text class="e2cY" x="776" y="242">&#10003;</text>
+        </g>
+        <g>
+          <rect x="20" y="258" width="840" height="34" rx="6" fill="#F7FEE7"/>
+          <text class="e2cR" x="30" y="280">Soundex/Metaphone</text>
+          <text class="e2cY" x="196" y="280">&#10003;</text><text class="e2cN" x="296" y="280">&#10007;</text><text class="e2cY" x="386" y="280">&#10003;</text><text class="e2cY" x="476" y="280">&#10003;</text><text class="e2cN" x="576" y="280">&#10007;</text><text class="e2cY" x="676" y="280">&#10003;</text><text class="e2cY" x="776" y="280">&#10003;</text>
+        </g>
+
+        <rect x="20" y="332" width="14" height="14" fill="#A21CAF"/>
+        <text class="e2cT" x="44" y="344">No row is all checks. Meridian's dirt needs at least three measures, never one.</text>
+        <text class="e2cT" x="44" y="364">Session 3 is what combines them into a single score instead of picking a favourite.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the honest reason session 3 needs more than one measure at a time</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Token sets: Jaccard and cosine on TF-IDF<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Jaccard similarity on token sets</strong> (Jaccard, 1901) treats a string as a bag of words and scores the overlap: shared tokens divided by all tokens across both sides. It is completely order-independent, which is exactly what "Robert Chen" against "Chen Robert" needs - both sides are the set &#123;robert, chen&#125;, so Jaccard reports 1. Its failure sits one level down: it treats a token as atomic, so "Jon" and "John" are two entirely different tokens with zero overlap between them, even though a human reads them as the same name missing one letter. Jaccard cannot see inside a token at all.</p>
+        <p><strong>Cosine similarity on TF-IDF vectors</strong> (the vector-space model, Salton) fixes a different problem: not every shared token is equally informative. "Ltd" and "Inc" appear in hundreds of company names and should barely move a similarity score, while a distinctive word like "Northwind" should move it a lot. TF-IDF weighting down-weights the common tokens automatically, which is exactly the property you want for company-name matching. Its failure is structural rather than conceptual: the "IDF" half of the name needs a corpus to estimate how rare a token actually is, and on a tiny corpus - Meridian's few dozen company names, or any young dataset - those rarity estimates are unstable and can swing the score around for reasons that have nothing to do with the two strings being compared.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Phonetics: Soundex, Metaphone, and the value of a second code<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Soundex</strong> (Robert Russell and Margaret Odell, US patents 1,261,167 of 1918 and 1,435,663 of 1922) is the oldest phonetic code in production use anywhere, predating every other measure in this session by decades. It keeps the first letter of a name as-is, converts the rest of the consonants into a small set of digit codes for similar-sounding groups, drops vowels entirely, and pads or truncates the result to four characters. "Smith" and "Smyth" collapse onto the same code because Soundex never looks at the vowel that differs.</p>
+        <p>The same mechanism is also its failure. A four-character code is a very small space, so genuinely different names collapse onto the same code far more often than seems safe, and the whole scheme was designed around English orthography and consonant sounds - it degrades on names built from other phonetic systems. Type two names that sound similar into the lab and read the codes it prints underneath; a match there is a hint worth checking, never a verdict on its own.</p>
+        <p><strong>Metaphone</strong> (Lawrence Philips, 1990, published in Computer Language) improved on Soundex's rule set for English pronunciation but still returns one code, which means it still cannot represent a name with two legitimate pronunciations. <strong>Double Metaphone</strong> (Philips, 2000, C/C++ Users Journal 18, pages 38 to 43) fixes exactly that: it returns a primary and a secondary code, so a name that could plausibly be pronounced two ways - many Slavic, Germanic, Celtic, Greek and Hispanic surnames among them - carries both possibilities forward instead of forcing a single guess.</p>
+        <div class="callout warn">
+          <p><strong>Verification honesty.</strong> NYSIIS (Taft, 1970, New York State Identification and Intelligence System) is a further phonetic scheme with different vowel and suffix rules than Soundex. The original agency report was not fetched for this course, so the commonly cited claim that NYSIIS improves match accuracy by roughly 2.7 percent over Soundex on European and Hispanic surnames is reported here as it travels through secondary sources, not verified against the primary study. Treat that number as a widely repeated estimate, not a checked fact.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Normalisation is a prior step, and it is a bet<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every measure above runs on whatever text it is handed, and what it is handed is usually the product of a normalisation step that ran first: expanding nicknames, standardising transliteration, abbreviating or expanding street types, stripping company suffixes, or reducing a phone number to digits only. None of the seven measures know this happened. That is exactly the risk - normalisation destroys the original difference before any measure gets a chance to weigh it.</p>
+        <ul>
+          <li><strong>Nickname lists.</strong> Folding "Bob" into "Robert" and "Mike" into "Michael" recovers real matches a string measure alone would score low. It also assumes a nickname always means the same underlying formal name, which is not universally true.</li>
+          <li><strong>Transliteration.</strong> "Muller" and "Mueller" are the same German surname written two ways after the umlaut is dropped or expanded. A transliteration table catches this reliably; a raw edit distance sees two substitutions and one insertion.</li>
+          <li><strong>Street abbreviation.</strong> "Street" and "St", "Court" and "Ct" need a lookup table, not a smarter string measure, because the shortening is a convention rather than a spelling error.</li>
+          <li><strong>Phone digits only.</strong> Stripping formatting down to digits turns "0412 336 908" and "+61 412 336 908" into comparable strings, though it also throws away the country-code information that would otherwise tell you the numbers are formatted for different markets.</li>
+          <li><strong>Company suffix stripping.</strong> Removing "Ltd", "Inc", "Limited" and similar tokens correctly joins "Northwind Ltd" and "Northwind Limited". It also correctly joins "Northwind Ltd" and "Northwind Pty Ltd" if those happen to be separate legal entities, which is the trade you are actually making.</li>
+        </ul>
+        <p>Folding "Katherine" and "Catherine" together at the normalisation stage correctly joins the one pair in Meridian where that is the right call, and it risks wrongly joining two different people elsewhere in a larger dataset who happen to share that variant spelling by coincidence rather than by being the same person. There is no version of normalisation that avoids this trade - the honest move is to make the bet visible, not to pretend cleaning the data removed the judgement call.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Break each measure on purpose</h2>
+      <span class="tag demo">★ 16 min · everyone builds</span>
+    </div>
+    <p class="lede">The lab below is live - type into either box and every measure recomputes immediately, with the Soundex codes for both strings printed underneath. Read every number in this session off it directly; nothing here is a number to memorise.</p>
+
+    <div class="er-wrap" id="er-lab"></div>
+
+    <div class="steps">
+      <div class="step"><p>Load the <strong>Mary Ann / Mray Ann</strong> preset. Read the Levenshtein score and the Damerau-Levenshtein score side by side. Confirm the gap is exactly the transposition penalty difference from Part 1 - one operation under Damerau, two under plain Levenshtein.</p></div>
+      <div class="step"><p>Load <strong>Katherine / Catherine</strong>. Read the Jaro score and the Jaro-Winkler score. They should be close to identical - find where the prefix boost failed, and say in one sentence why L came out at zero.</p></div>
+      <div class="step"><p>Now type <strong>Robert Chen</strong> against <strong>Robert Chan</strong> - two different people in Meridian. Read the Soundex codes printed under the boxes. If they match, you have found the case the honesty callout above warned about: a phonetic code that says identical for two people who are not.</p></div>
+      <div class="step"><p>Try <strong>Thomas Muller / Thomas Mueller</strong> and <strong>Smith / Smyth</strong>. Note which measures score them high and which score them low, and connect that back to the matrix figure - phonetic measures should win both, edit distance should struggle with the vowel-heavy transliteration case.</p></div>
+      <div class="step"><p>For each Meridian field below, pick the single measure you would trust most and write one line defending the choice: <strong>name</strong>, <strong>company</strong>, <strong>street address</strong>, <strong>phone</strong>. There is a defensible answer for each, and it is rarely the same measure twice.</p></div>
+      <div class="step"><p>Compare your four choices with a neighbour. Where you disagree, load both strings into the lab and let the numbers settle it rather than the argument.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p>Keep your four field-to-measure choices. Session 3 assigns a real weight to each field based on how often it agrees on a true match versus a non-match, and it is worth knowing whether your intuition from tonight lines up with the estimated numbers.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 3</h2>
+      <span class="tag exercise">25 min</span>
+    </div>
+    <ul>
+      <li>Take the 20 pairs you labelled after session 1. For each one, load the two names into the lab and record all seven scores.</li>
+      <li>Find at least one pair in your own set where Jaro-Winkler's prefix boost could not help, the way it cannot for Katherine and Catherine. Write down why.</li>
+      <li>Pick one normalisation rule you would apply to your own data - a nickname list, a suffix strip, digits-only phones - and write one sentence on what it correctly joins and one sentence on what it risks wrongly joining.</li>
+      <li>Note which single measure best separated your true pairs from your true non-pairs. Session 3 will ask you to turn that observation into an estimated weight.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">In Jaro-Winkler's formula, JW = Jaro + L &#215; P &#215; (1 - Jaro), what is L and what is it capped at?</p>
+      <button class="qopt" type="button">A · The full string length, capped at 10 characters</button>
+      <button class="qopt" type="button">B · The number of transpositions, capped at 4</button>
+      <button class="qopt" type="button">C · The common prefix length, capped at 4 characters</button>
+      <p class="qwhy">L is the length of the matching prefix shared by both strings, and Winkler capped it at 4 regardless of how much longer the strings are. Combined with the default prefix scale of 0.1, that keeps the maximum possible boost at 0.4 times whatever Jaro similarity was missing - and is exactly why the boost is zero whenever the very first character disagrees, as it does for Katherine against Catherine.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Folding "Katherine" and "Catherine" together at the normalisation stage correctly joins one true pair in Meridian. What does that same rule risk doing elsewhere?</p>
+      <button class="qopt" type="button">A · Wrongly joining two different people who happen to share that variant spelling by coincidence</button>
+      <button class="qopt" type="button">B · Nothing - normalisation only ever removes noise, never signal</button>
+      <button class="qopt" type="button">C · Slowing the pipeline down, but never affecting accuracy</button>
+      <p class="qwhy">Normalisation is lossy by construction: it destroys a distinction before any similarity measure gets to weigh it. The Katherine and Catherine fold is the right call for the one true Meridian pair it fixes, and the same rule applied at scale can just as easily fuse two genuinely different people who share that spelling variant. That is why normalisation is described as a bet rather than a cleanup step.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Robert Chen and Robert Chan produce the same Soundex code. What is the correct conclusion?</p>
+      <button class="qopt" type="button">A · Soundex is broken and should not be used on personal names</button>
+      <button class="qopt" type="button">B · A four-character phonetic code collapses genuinely different names, so a Soundex match is a hint to check, not a verdict</button>
+      <button class="qopt" type="button">C · The two records must actually be the same person, since names rarely collide by chance</button>
+      <p class="qwhy">Soundex compresses a name into four characters by design, and that small a space guarantees collisions between names that sound broadly alike but are not the same. Chen and Chan are exactly this case. The honest use of a phonetic code is as one signal among several - session 3 is where it gets combined with the rest rather than trusted alone.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Levenshtein, 1965/66, Soviet Physics Doklady</span><span class="note">Primary. Edit distance with insert, delete, substitute; the transposition-cost failure taught in full</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Damerau, 1964, Communications of the ACM</span><span class="note">Primary. The fourth operation, transposition at cost 1, and why it still misses phonetics</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Jaro, 1989, and Winkler, 1990</span><span class="note">Primary. The prefix formula worked by hand, including why P defaults to 0.1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Jaccard, 1901, and Salton's TF-IDF vector-space model</span><span class="note">Primary. Token-set overlap and corpus-weighted cosine, each with its failure case</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Odell and Russell, US patents 1,261,167 (1918) and 1,435,663 (1922)</span><span class="note">Primary. Soundex's own rules, and its four-character collision problem</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Philips, Metaphone (1990) and Double Metaphone (2000, C/C++ Users Journal 18, 38-43)</span><span class="note">Primary. Why a second code exists at all - real pronunciation ambiguity</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Taft, NYSIIS, 1970, New York State Identification and Intelligence System</span><span class="note">Secondary - the original report was not fetched; the ~2.7 percent claim over Soundex is repeated as reported elsewhere, not verified</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Full source map with every URL and every verification caveat: <span class="mono">materials/official-course-map.md</span> in this repo.</p>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 2 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Edit distance</b><span>Levenshtein: no transposition, costs 2. Damerau-Levenshtein: adds it, costs 1.</span></div>
+      <div class="cheat-item"><b>Jaro-Winkler formula</b><span>JW = Jaro + L &#215; P &#215; (1-Jaro). L = prefix length capped at 4, P = 0.1 default.</span></div>
+      <div class="cheat-item"><b>JW's blind spot</b><span>Difference at the START gets zero boost - Katherine vs Catherine, L = 0.</span></div>
+      <div class="cheat-item"><b>Token measures</b><span>Jaccard: order-free, blind inside a token (Jon/John = 0). Cosine TF-IDF: down-weights Ltd/Inc, needs a real corpus.</span></div>
+      <div class="cheat-item"><b>Phonetics</b><span>Soundex: 4 chars, collapses names, English-only. Double Metaphone: primary + secondary code for real ambiguity.</span></div>
+      <div class="cheat-item"><b>Normalisation is a bet</b><span>It joins the pair you meant and risks joining a pair you did not. Say so, do not hide it.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>Seven numbers per pair is not a decision. Session 3 turns these similarities into evidence with weights - Fellegi-Sunter's match weight, its two thresholds, and the clerical band nobody implements even though the original 1969 paper specifies it plainly.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 2 of 6 · learn-entity-resolution-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="01-no-shared-key.html">← Previous: No shared key</a> &nbsp;·&nbsp; <a href="03-fellegi-sunter.html">Next: Fellegi-Sunter →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/er-live.js?v=1"></script>
+</body>
+</html>

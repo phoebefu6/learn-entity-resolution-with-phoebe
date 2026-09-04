@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 3 of 6. The m and u probabilities, the match weight, and the structural point almost every system gets wrong: Fellegi and Sunter specified two thresholds and a clerical review band, not one cut.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Fellegi-Sunter, and the band nobody implements - learn entity resolution with phoebe">
+<meta property="og:description" content="Session 3 of 6. Two pairs score 0.84. One is the same person, one is not. No threshold can separate them.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/courses/03-fellegi-sunter.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fellegi-Sunter, and the band nobody implements">
+<meta name="twitter:description" content="Session 3 of 6. Two pairs score 0.84. One is the same person, one is not.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 3 · Fellegi-Sunter, and the band nobody implements - learn entity resolution with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-entity-resolution-with-phoebe</a> / Session 3 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Entity Resolution with Phoebe · Session 3 of 6</div>
+    <h1>Fellegi-Sunter, and the band <span class="accent">nobody implements</span></h1>
+    <p class="sub">A similarity is not evidence until you know how often that field agrees for real matches and how often it agrees by chance. Those two numbers turn every comparison into a weight you can add up. And then comes the part the 1969 paper is precise about and almost every production system quietly drops: there are <strong>two</strong> thresholds, and the pairs in between are supposed to go to a human. Tonight the bench shows you two pairs scoring 0.84, one the same person and one not, and no cut that can tell them apart.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Hands-on</span>
+      <span class="chip audience">Data engineers</span>
+      <span class="chip audience">Anyone who has ever picked a match threshold</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-24 · Two probabilities, one weight</span>
+      <span class="a3" style="flex:4">24-40 · Build-along: find the band</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we are</h2>
+    </div>
+    <p class="lede">Session 2 produced numbers: this pair of names scores 0.94 on Jaro-Winkler, these addresses share three tokens of four. None of that says whether the pair is a match. A similarity of 0.94 on a surname means something quite different from 0.94 on a phone number, and the difference is measurable rather than a matter of taste.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> The two probabilities that turn a similarity into evidence, and why their ratio is the whole model. The arithmetic of a match weight, computed by hand on a real Meridian pair. And the reason a single threshold is not a simplification of Fellegi-Sunter but a departure from it.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why the same similarity means different things<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Two records agree on the surname Smith. Two other records agree on the phone number 0422 909 118. Both are exact agreements, and they are worth wildly different amounts, for a reason that has nothing to do with the strings.</p>
+        <p>Lots of unrelated people are called Smith, so a surname agreement happens by chance reasonably often. Almost nobody shares a mobile number, so a phone agreement almost never happens by chance. The evidence a field provides depends on <strong>how surprising the agreement is</strong>, and that is an empirical property of your data rather than a judgement about the field.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>In Meridian, two completely unrelated people are called Maria Gonzalez, and a father and son are both James Whitmore. Meanwhile every phone agreement in the file is a genuine link except one, where a father and son share a household landline. That asymmetry is the model in miniature: names agree by chance, phones almost do not, and the exception is instructive.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where this comes from<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Fellegi, I.P. and Sunter, A.B., "A Theory for Record Linkage", Journal of the American Statistical Association, volume 64, number 328, 1969, pages 1183 to 1210.</strong> It formalises the approach Newcombe and colleagues published in Science ten years earlier, which session 1 covered.</p>
+        <p>It is worth reading for one reason beyond the model: it treats linkage as a <em>decision problem with costs</em>, not a classification problem with an accuracy score. The paper's central theorem is about minimising the amount of human review needed to hold two error rates below chosen bounds. That framing is what produces the three-way rule in Part 3, and it is the part that gets lost when the model is reimplemented as "score the pairs and pick a cutoff".</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers m, u and their ratio</span>
+      <h2>Two probabilities per field, and only their ratio matters</h2>
+      <span class="tag concept">8 min live</span>
+    </div>
+    <p class="lede">For each field you compare, Fellegi-Sunter asks two questions. Both are about frequencies you can count, and the answer to each is a probability between zero and one.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="For each field, the m probability is how often it agrees among true matches and the u probability is how often it agrees among non-matches, and the log of their ratio is the weight added when the field agrees">
+        <style>
+          .e3aH { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .e3aK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e3aC { font: 400 11px Inter, sans-serif; fill: #ECFCCB; }
+          .e3aD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e3aN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+          .e3aV { font: 800 15px Inter, sans-serif; fill: #365314; }
+          .e3aF { font: 700 12px Inter, sans-serif; fill: #4A0D52; }
+        </style>
+        <defs>
+          <marker id="e3Ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#CBD5C0"/></marker>
+        </defs>
+
+        <rect x="30" y="40" width="360" height="120" rx="12" fill="#365314"/>
+        <text class="e3aH" x="50" y="68">m - among pairs that ARE a match</text>
+        <text class="e3aC" x="50" y="90">how often does this field agree anyway?</text>
+        <text class="e3aC" x="50" y="112">low m means the field is dirty, not useless:</text>
+        <text class="e3aC" x="50" y="134">people change surname, mistype, move house</text>
+
+        <rect x="450" y="40" width="400" height="120" rx="12" fill="#A21CAF"/>
+        <text class="e3aH" x="470" y="68">u - among pairs that are NOT a match</text>
+        <text class="e3aC" x="470" y="90">how often does this field agree by chance?</text>
+        <text class="e3aC" x="470" y="112">u is what makes a field powerful. A shared</text>
+        <text class="e3aC" x="470" y="134">mobile is astonishing; a shared surname is not</text>
+
+        <line x1="210" y1="164" x2="380" y2="204" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e3Ar)"/>
+        <line x1="650" y1="164" x2="500" y2="204" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e3Ar)"/>
+
+        <rect x="300" y="208" width="280" height="70" rx="12" fill="#F7FEE7" stroke="#4D7C0F" stroke-width="2"/>
+        <text class="e3aK" x="440" y="234" text-anchor="middle">weight when the field agrees</text>
+        <text class="e3aV" x="440" y="262" text-anchor="middle">log2( m / u )</text>
+
+        <rect x="30" y="300" width="250" height="56" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e3aF" x="46" y="322">Phone: m .88, u .002</text>
+        <text class="e3aD" x="46" y="342">agreeing is worth +8.8</text>
+
+        <rect x="300" y="300" width="250" height="56" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e3aF" x="316" y="322">Name: m .92, u .02</text>
+        <text class="e3aD" x="316" y="342">agreeing is worth +5.5</text>
+
+        <rect x="570" y="300" width="280" height="56" rx="10" fill="#FDF4FF" stroke="#A21CAF" stroke-width="1.5"/>
+        <text class="e3aF" x="586" y="322">Company: m .95, u .06</text>
+        <text class="e3aD" x="586" y="342">agreeing is worth only +4.0</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - a high m does not make a field strong; a low u does</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The counter-intuitive half: u does the work<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>People reach for the field they trust, meaning the field that is usually filled in and usually correct. That instinct optimises m and ignores u, and u is where the discriminating power lives.</p>
+        <p>Company name in Meridian has an <strong>m of 0.95</strong>, which is excellent: when two records really are the same person, they almost always agree on the employer. It is also the weakest field in the model, because its <strong>u is 0.06</strong> - plenty of unrelated people work at the same company. Agreement is worth only about +4.0. The phone number has a <em>lower</em> m of 0.88, because people change numbers, and yet agreement is worth +8.8, because its u is 0.002.</p>
+        <div class="callout tip">
+          <p>The practical version: a field is valuable in proportion to how much it would surprise you to see it agree between two strangers. That is why a national identifier is worth more than a name, and why "country" is worth almost nothing even though it is populated on every row and always correct.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Disagreement carries evidence too<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A field that disagrees is not neutral, it is evidence against the pair, and its size follows the same logic:</p>
+        <ul>
+          <li><strong>Agreement</strong> adds <span class="mono">log2(m / u)</span>.</li>
+          <li><strong>Disagreement</strong> adds <span class="mono">log2((1 - m) / (1 - u))</span>, which is negative.</li>
+        </ul>
+        <p>Notice what makes a disagreement expensive. Email in Meridian has an m of 0.55, because half of all true pairs have a work address on one record and a personal one on the other, so an email disagreement barely counts against a pair at about -1.2. Company has an m of 0.95, so a company disagreement is a real problem at about -4.2. <strong>A field where matches often disagree cannot punish you for disagreeing.</strong></p>
+        <p>Missing values are a third case, and the honest treatment is to let them carry nothing at all. If one record has no email, that is neither agreement nor disagreement, so the field contributes zero rather than a penalty. The bench does exactly this, which is why Aisha Bello's two records still match on their other fields.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where m and u come from in real work<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The table in the bench is a stand-in, and the page says so. In real work you get these numbers three ways:</p>
+        <ul>
+          <li><strong>Count u directly.</strong> It needs no labels at all. Take random pairs from your data, which are overwhelmingly non-matches, and count how often each field agrees. For a surname you can do better and use a frequency table, so that agreeing on Smith is worth less than agreeing on Okonkwo. Splink supports exactly this as term-frequency adjustment.</li>
+          <li><strong>Estimate m from your labels.</strong> Among the pairs you labelled as matches in session 1, count how often each field agrees. Twenty labelled pairs gives a rough but usable number.</li>
+          <li><strong>Estimate both with expectation maximisation.</strong> Fit the model without labels by treating match status as a latent variable. This is what Splink does by default, and it is why Splink can get started on unlabelled data. It is also why you should still hold labels back to check the result.</li>
+        </ul>
+        <p>The full weight for a pair includes one more term, a prior for how common matches are at all: <span class="mono">log2(lambda / (1 - lambda))</span>. In Meridian 35 of 1,953 pairs match, so that term is about <strong>-5.7</strong>, and it is why a single agreeing field is not enough to call a match. One name agreement is +5.5 against a prior of -5.7, which lands just below zero. Two strangers agreeing on one field is exactly what you would expect to see.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers adding the weights up</span>
+      <h2>One pair, five fields, added by hand</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">The weights sum. That is an assumption, not a fact, and it has a name: conditional independence given match status. It is usually slightly wrong and usually good enough, and knowing where it breaks is part of using the model well.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The match weight for Sarah Whitfield's two records computed field by field, starting from the prior of minus 5.7 and ending at a total of 0.84">
+        <style>
+          .e3bH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e3bK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e3bD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e3bP { font: 800 13px Inter, sans-serif; fill: #166534; }
+          .e3bM { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .e3bT { font: 800 15px Inter, sans-serif; fill: #4A0D52; }
+          .e3bN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <text class="e3bH" x="30" y="38">TERM</text>
+        <text class="e3bH" x="300" y="38">SARAH WHITFIELD r13 vs r63</text>
+        <text class="e3bH" x="700" y="38">WEIGHT</text>
+
+        <rect x="20" y="50" width="840" height="36" rx="8" fill="#FDF4FF"/>
+        <text class="e3bK" x="30" y="73">prior</text>
+        <text class="e3bD" x="300" y="73">35 of 1,953 pairs match</text>
+        <text class="e3bM" x="700" y="73">-5.7</text>
+
+        <rect x="20" y="90" width="840" height="36" rx="8" fill="#F7FEE7"/>
+        <text class="e3bK" x="30" y="113">name</text>
+        <text class="e3bD" x="300" y="113">Sarah Whitfield = Sarah Whitfield</text>
+        <text class="e3bP" x="700" y="113">+5.5</text>
+
+        <rect x="20" y="130" width="840" height="36" rx="8" fill="#F7FEE7"/>
+        <text class="e3bK" x="30" y="153">phone</text>
+        <text class="e3bD" x="300" y="153">0422 909 118 on both, she kept her mobile</text>
+        <text class="e3bP" x="700" y="153">+8.8</text>
+
+        <rect x="20" y="170" width="840" height="36" rx="8" fill="#FEF2F2"/>
+        <text class="e3bK" x="30" y="193">email</text>
+        <text class="e3bD" x="300" y="193">work address vs personal fastmail</text>
+        <text class="e3bM" x="700" y="193">-1.2</text>
+
+        <rect x="20" y="210" width="840" height="36" rx="8" fill="#FEF2F2"/>
+        <text class="e3bK" x="30" y="233">address</text>
+        <text class="e3bD" x="300" y="233">Marlowe Street vs Ledbury Crescent, she moved</text>
+        <text class="e3bM" x="700" y="233">-2.3</text>
+
+        <rect x="20" y="250" width="840" height="36" rx="8" fill="#FEF2F2"/>
+        <text class="e3bK" x="30" y="273">company</text>
+        <text class="e3bD" x="300" y="273">Tessellate vs Kestrelbank, she changed job</text>
+        <text class="e3bM" x="700" y="273">-4.2</text>
+
+        <rect x="20" y="296" width="840" height="44" rx="8" fill="#D9F99D"/>
+        <text class="e3bK" x="30" y="323">total match weight</text>
+        <text class="e3bD" x="300" y="323">same person, and only two fields say so</text>
+        <text class="e3bT" x="700" y="324">0.84</text>
+
+        <rect x="20" y="368" width="14" height="14" fill="#A21CAF"/>
+        <text class="e3bN" x="44" y="380">Barely positive. Part 3 shows a pair of different people that scores exactly the same.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the arithmetic the bench performs on every pair</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Where conditional independence breaks<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Summing the weights assumes that, once you know whether a pair is a match, the fields agree or disagree independently. Two places that fails, both visible in Meridian:</p>
+        <ul>
+          <li><strong>Address and postcode.</strong> If the street agrees the postcode almost certainly agrees, so counting both double-counts one piece of evidence and inflates the weight. Treat them as one comparison or accept the inflation knowingly.</li>
+          <li><strong>Company and email domain.</strong> Sarah's email changed <em>because</em> her employer changed. Two disagreements, one underlying cause, counted twice against the pair. Her total of 0.84 is pulled down partly by double-counting a single life event.</li>
+        </ul>
+        <p>The usual remedies are to combine correlated fields into one comparison, or to model the interaction explicitly. Splink lets you do the former easily and the latter with effort. What you should not do is add every column you have and assume more evidence is better; correlated fields make the model overconfident in both directions.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers the three-way decision</span>
+      <h2>Two thresholds, and a band that belongs to a human</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Here is the structural point. Fellegi and Sunter do not describe a cutoff. They describe an <strong>upper</strong> threshold above which a pair is a designated match, a <strong>lower</strong> threshold below which it is a designated non-match, and the region between them, which is sent for clerical review. Their central theorem is that this partition minimises the volume of human review for chosen error bounds.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A weight axis with a lower and an upper threshold creating three regions, with two Meridian pairs both scoring 0.84 inside the middle band, one a true match and one not">
+        <style>
+          .e3cH { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .e3cK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e3cD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e3cW { font: 400 11px Inter, sans-serif; fill: #ECFCCB; }
+          .e3cN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+          .e3cG { font: 700 11px Inter, sans-serif; fill: #166534; }
+          .e3cR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+          .e3cV { font: 800 12px Inter, sans-serif; fill: #4A0D52; }
+        </style>
+        <rect x="30" y="60" width="250" height="76" rx="10" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text class="e3cK" x="155" y="88" text-anchor="middle">Designated non-match</text>
+        <text class="e3cD" x="155" y="110" text-anchor="middle">below the lower threshold</text>
+        <text class="e3cD" x="155" y="128" text-anchor="middle">discard, no human needed</text>
+
+        <rect x="290" y="60" width="290" height="76" rx="10" fill="#A21CAF"/>
+        <text class="e3cH" x="435" y="88" text-anchor="middle">Clerical review</text>
+        <text class="e3cW" x="435" y="110" text-anchor="middle">between the two thresholds</text>
+        <text class="e3cW" x="435" y="128" text-anchor="middle">a person decides these</text>
+
+        <rect x="590" y="60" width="260" height="76" rx="10" fill="#365314"/>
+        <text class="e3cH" x="720" y="88" text-anchor="middle">Designated match</text>
+        <text class="e3cW" x="720" y="110" text-anchor="middle">above the upper threshold</text>
+        <text class="e3cW" x="720" y="128" text-anchor="middle">merge, no human needed</text>
+
+        <line x1="30" y1="164" x2="850" y2="164" stroke="#CBD5C0" stroke-width="2"/>
+        <line x1="290" y1="152" x2="290" y2="176" stroke="#4A0D52" stroke-width="2"/>
+        <line x1="580" y1="152" x2="580" y2="176" stroke="#4A0D52" stroke-width="2"/>
+        <text class="e3cV" x="290" y="192" text-anchor="middle">lower 0.5</text>
+        <text class="e3cV" x="580" y="192" text-anchor="middle">upper 4.0</text>
+        <text class="e3cD" x="34" y="192">weight</text>
+
+        <rect x="300" y="216" width="270" height="46" rx="8" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e3cG" x="314" y="236">Sarah ~ Sarah   weight 0.84</text>
+        <text class="e3cD" x="314" y="254">the SAME person, job change and move</text>
+
+        <rect x="300" y="270" width="270" height="46" rx="8" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text class="e3cR" x="314" y="290">Whitmore ~ Whitmore   weight 0.84</text>
+        <text class="e3cD" x="314" y="308">DIFFERENT people, father and son</text>
+
+        <rect x="600" y="240" width="250" height="60" rx="8" fill="#FDF4FF" stroke="#A21CAF" stroke-width="1.5"/>
+        <text class="e3cK" x="614" y="262">Identical weights.</text>
+        <text class="e3cD" x="614" y="282">No cut separates them, so</text>
+        <text class="e3cD" x="614" y="298">the band is not a compromise.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the two pairs the bench cannot tell apart, and neither can you</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What one threshold costs you<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Because those two pairs score the same, a single cut has to get one of them wrong. The bench measures all three options over the whole file:</p>
+        <div class="tablescroll">
+        <table class="clean">
+          <thead><tr><th>Decision rule</th><th>Precision</th><th>Recall</th><th>F1</th><th>Missed</th><th>False</th><th>To a human</th></tr></thead>
+          <tbody>
+            <tr><td>One cut, high (upper 4)</td><td>100%</td><td>94%</td><td>0.971</td><td>2</td><td>0</td><td>0</td></tr>
+            <tr><td>One cut, low (upper 0.5)</td><td>97%</td><td>97%</td><td>0.971</td><td>1</td><td>1</td><td>0</td></tr>
+            <tr><td>Two cuts, band 0.5 to 4</td><td>100%</td><td>94%</td><td>0.971</td><td>2</td><td>0</td><td><strong>2</strong></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>Both single cuts land on <strong>the same F1 of 0.971</strong>, and neither can do better, because the error is not a tuning failure. Move the cut down and you gain the true pair and buy a false merge. Move it up and you lose the true pair. That is the trade the band refuses to make.</p>
+        <p>And the band's price is tiny. Two pairs out of 1,953 go to a person. Those two minutes of human attention recover the real match and reject the father and son, taking the result to <strong>100 percent precision and 100 percent recall</strong> - which neither single cut can reach at any threshold.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>This is the part that gets dropped when a model becomes a pipeline. A review queue needs somebody to own it, an interface, and an agreed turnaround, and none of that fits in a nightly job. So the band gets collapsed to a single cutoff, the pipeline stops asking for help, and the father and son quietly become one customer with two addresses and a doubled lifetime value.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Choosing the two thresholds on purpose<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Fellegi and Sunter derive the thresholds from error bounds rather than taste: you state the false-match rate and the false-non-match rate you are willing to accept, and the thresholds follow. In practice teams work backwards from two constraints instead, which is legitimate as long as it is deliberate:</p>
+        <ul>
+          <li><strong>The upper threshold is set by the cost of a wrong merge.</strong> Un-merging two customers after a year of shared history is expensive and sometimes impossible, so where merges are hard to reverse, set it high.</li>
+          <li><strong>The lower threshold is set by review capacity.</strong> The band is only useful if somebody actually works it. A band containing 4 percent of a million-record file is 20,000 pairs a night, which nobody reviews, and an unworked queue is worse than a decision because it looks like control.</li>
+          <li><strong>Both should be revisited when the data changes.</strong> A new source system with a different email convention shifts every email weight in the file.</li>
+        </ul>
+        <p>One honest asymmetry worth stating to stakeholders: a missed match and a false merge are not equal errors. A missed match leaves two customer records where there should be one, which is a known and fixable annoyance. A false merge fuses two real people's data, which may be a privacy incident and is much harder to unpick. Session 6 returns to this.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Find the band, then try to beat it</h2>
+      <span class="tag demo">★ 16 min · everyone builds</span>
+    </div>
+    <p class="lede">The bench scores every candidate pair with the arithmetic from Part 2 and applies the three-way rule from Part 3. Every figure it shows is computed against the labels as you move a control.</p>
+
+    <div class="er-wrap" id="er-bench"></div>
+
+    <div class="steps">
+      <div class="step"><p>Press <strong>A sensible configuration</strong>. All five fields on, normalisation on, thresholds at 0.5 and 4.0. Read the board: precision 100 percent, recall 94 percent, and <strong>2 pairs in the clerical band</strong>.</p></div>
+      <div class="step"><p>Scroll the pair list to the two rows marked <strong>review</strong>. One is Sarah Whitfield against Sarah Whitfield, one is James Whitmore against James Whitmore. Both weigh <strong>0.84</strong>. One is the same person and one is two people.</p></div>
+      <div class="step"><p>Now untick <strong>Keep the clerical band</strong> and drag the upper threshold down to about 0.5 so the band's pairs become matches. Recall goes up and <strong>a false match appears</strong>. You just merged a father and his son.</p></div>
+      <div class="step"><p>Put the upper threshold back to 4.0, still with no band. Precision returns to 100 percent and you are back to <strong>missing a real pair</strong>. Try every threshold you like: F1 does not beat 0.971 either way.</p></div>
+      <div class="step"><p>Turn the band back on. Two pairs go to a human, and a human can read the addresses and see that one Whitmore works at Caldera and the other at Brightmoor. That is two minutes of work for the last three percent of recall.</p></div>
+      <div class="step"><p>Now break the model deliberately. Turn <strong>every field off except company</strong>. Watch what a field with a u of 0.06 does on its own, and note that its m of 0.95 does not save it.</p></div>
+      <div class="step"><p>Finally turn on <strong>Transitive closure</strong> in the Clustering box and watch the cluster count. It reports 33 against 32 real people, which is the wrong answer in the less obvious direction. Session 5 takes that apart.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p>The one number on that widget that is not measured is the m and u table, which stands in for what expectation maximisation would estimate on your own corpus. Everything computed from it - every weight, every verdict, precision, recall - is real arithmetic over the real labels. Say which is which when you show a tool's output to anyone.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 4</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ul>
+      <li>Take the 20 labelled pairs from session 1 and <strong>estimate m by hand</strong> for each field: among your true pairs, what share agree on that field?</li>
+      <li><strong>Estimate u without labels.</strong> Take 100 random pairs from your data, assume they are non-matches, and count agreement per field. Then compute log2(m/u) for each field and rank them.</li>
+      <li>Compare that ranking to the field you said you trusted most in session 1's homework. If they disagree, work out why - it is almost always a field with a high m and a high u.</li>
+      <li>Write down the two thresholds you would use, with a sentence each: what a wrong merge costs you, and how many pairs a day your team can actually review.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">Company name in Meridian has m of 0.95 and u of 0.06, and phone has m of 0.88 and u of 0.002. Which field is stronger evidence when it agrees, and why?</p>
+      <button class="qopt" type="button">A · Company, because a higher m means it is more reliable among true matches</button>
+      <button class="qopt" type="button">B · They are equally strong, because the two effects cancel out</button>
+      <button class="qopt" type="button">C · Phone, because its far lower u makes agreement much more surprising by chance</button>
+      <p class="qwhy">The weight is log2(m/u), so u dominates. Phone agreement is worth about +8.8 and company only about +4.0, even though company agrees more reliably among true matches. A field is valuable in proportion to how surprising its agreement would be between strangers.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Two Meridian pairs both score a match weight of 0.84, and exactly one of them is the same person. What does that establish about thresholds?</p>
+      <button class="qopt" type="button">A · That no single cut can classify both correctly, which is why Fellegi-Sunter specify two</button>
+      <button class="qopt" type="button">B · That the m and u table is miscalibrated and should be re-estimated</button>
+      <button class="qopt" type="button">C · That more fields should be added until the two weights separate</button>
+      <p class="qwhy">Identical weights mean any cutoff treats them identically, so one will be wrong whichever value you pick. Both single cuts measure F1 0.971 and neither does better. Re-estimating or adding fields does not help when the underlying data genuinely does not distinguish a father from his son.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Email in Meridian has an m of 0.55. What follows for a pair whose emails disagree?</p>
+      <button class="qopt" type="button">A · The pair should be rejected outright, since email is a strong identifier</button>
+      <button class="qopt" type="button">B · The disagreement counts only weakly against the pair, because true matches often disagree here</button>
+      <button class="qopt" type="button">C · The field contributes nothing, because m below 0.6 makes it unusable</button>
+      <p class="qwhy">Disagreement weight is log2((1-m)/(1-u)), so a low m makes disagreement cheap - about -1.2 for email. Nearly half of true pairs have a work address on one record and a personal one on the other, so an email disagreement is weak evidence. Compare company, where m is 0.95 and disagreement costs about -4.2.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Fellegi and Sunter, A Theory for Record Linkage (JASA 64:328, 1969, 1183-1210)</span><span class="note">The m and u probabilities, the log-likelihood match weight, and the three-way decision with its clerical review region</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">The log2 formulation with a prior-odds term</span><span class="note">As rendered in Splink's own theory documentation; the -5.7 prior for Meridian is computed from its 35 true pairs in 1,953</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Expectation maximisation for estimating m and u without labels</span><span class="note">Named as what Splink does by default; the algorithm itself is not derived here</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Term-frequency adjustment for common surnames</span><span class="note">Introduced as the better way to handle u on a name field; Splink implements it</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Full source map with every URL and every verification caveat: <span class="mono">materials/official-course-map.md</span> in this repo.</p>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 3 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>m and u</b><span>m = agrees among true matches. u = agrees among non-matches. Only their ratio matters.</span></div>
+      <div class="cheat-item"><b>The weights</b><span>Agree: log2(m/u). Disagree: log2((1-m)/(1-u)). Missing: zero, not a penalty.</span></div>
+      <div class="cheat-item"><b>u does the work</b><span>Company m .95 but u .06 is worth +4.0. Phone m .88 but u .002 is worth +8.8.</span></div>
+      <div class="cheat-item"><b>The prior</b><span>log2(lambda/(1-lambda)), about -5.7 here. One agreeing field alone does not clear it.</span></div>
+      <div class="cheat-item"><b>Two thresholds</b><span>Upper set by the cost of a wrong merge. Lower set by how many pairs a human can review.</span></div>
+      <div class="cheat-item"><b>0.84 twice</b><span>Sarah and Sarah, Whitmore and Whitmore. Same weight, different answers. That is the band.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>The model now works and it compares all 1,953 pairs to do it. At a million records that is 500 billion comparisons and 58 days. Session 4 throws most pairs away before scoring them, and measures the one thing that matters about doing so: how many true pairs you destroyed on the way, because those never come back.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 3 of 6 · learn-entity-resolution-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="02-comparing-strings.html">← Previous: Comparing strings honestly</a> &nbsp;·&nbsp; <a href="04-blocking.html">Next: Blocking →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/er-live.js?v=1"></script>
+</body>
+</html>

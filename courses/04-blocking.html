@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 4 of 6. The four ways to cut n-squared pairs down to a workable candidate set, and the three measured metrics - pair completeness, reduction ratio, pairs quality - that decide which one is honest about what it throws away.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Blocking - learn entity resolution with phoebe">
+<meta property="og:description" content="Session 4 of 6. Four blocking schemes on Meridian, scored on pair completeness, reduction ratio and pairs quality.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/courses/04-blocking.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Blocking - learn entity resolution with phoebe">
+<meta name="twitter:description" content="Session 4 of 6. Four schemes, three metrics, and the 9 percent every one of them costs.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-entity-resolution-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 4 · Blocking - learn entity resolution with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-entity-resolution-with-phoebe</a> / Session 4 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Entity Resolution with Phoebe · Session 4 of 6</div>
+    <h1>Blocking, before <span class="accent">anything</span> gets compared</h1>
+    <p class="sub">Session 1 showed that comparing every pair grows with the square of the record count. Blocking is the answer, and it is not free: every scheme that makes comparison affordable also throws some true pairs away before they are ever scored, permanently. Tonight is the arithmetic that forces the decision, four real schemes, and the three measured metrics that tell you exactly what each one costs.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Hands-on</span>
+      <span class="chip audience">Data engineers</span>
+      <span class="chip audience">Platform and infrastructure owners</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-23 · Four schemes</span>
+      <span class="a3" style="flex:4">23-40 · Build-along: choose Meridian's blocker</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we are</h2>
+    </div>
+    <p class="lede">Sessions 2 and 3 built the machinery to score a pair well: seven string measures and a Fellegi-Sunter weight that turns field agreements into evidence, with a clerical band for the pairs that stay genuinely undecidable. None of that machinery is cheap enough to run on all 1,953 possible Meridian pairs at real scale. Tonight is the stage that runs before scoring: deciding which pairs are even worth the expensive comparison. Session 5 then judges the whole pipeline, blocking included, against the labelled truth.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Four blocking schemes with what each one actually does to a set of records, the three metrics that measure a blocker honestly - pair completeness, reduction ratio, pairs quality - and the real numbers from running all four on Meridian. Also the single rule that should decide which one you ship: a pair a blocker discards can never come back, so completeness comes first.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why scoring alone does not scale<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A Fellegi-Sunter weight, or any of session 2's seven string measures, is cheap to compute once. It is not cheap to compute 1,953 times, and 1,953 is Meridian at 63 records. The moment a real customer table crosses somewhere between a hundred thousand and a million records per side, all-pairs comparison stops being slow and starts being infeasible on any budget - that is the arithmetic from session 1, and it does not go away just because your scoring got better.</p>
+        <p>Blocking is the answer to a specific question: can you decide, cheaply, that most pairs are obviously not worth the expensive comparison at all? The four schemes tonight are four different cheap questions to ask first.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Meridian's support system alone has tens of thousands of tickets, each with a name and a partial address. Running Fellegi-Sunter on every ticket against every CRM contact would mean scoring hundreds of millions of pairs to find a few thousand true matches. Nobody ships that. Everybody ships a cheap filter first.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The number that forces the conversation<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Restating session 1's arithmetic in one place, because it is the entire reason this session exists: all-pairs comparison is <strong>O(N &#215; M)</strong> for two tables of size N and M, or O(N&#178;) when comparing a table against itself. That stops being comfortable well before most people expect.</p>
+        <table class="clean">
+          <thead><tr><th>Records per side</th><th>Pairs to compare</th></tr></thead>
+          <tbody>
+            <tr><td>63 (Meridian)</td><td>1,953</td></tr>
+            <tr><td>1,000</td><td>499,500</td></tr>
+            <tr><td>10,000</td><td>49,995,000</td></tr>
+            <tr><td>100,000</td><td>4,999,950,000</td></tr>
+            <tr><td>1,000,000</td><td>499,999,500,000</td></tr>
+          </tbody>
+        </table>
+        <p>Somewhere between the 100,000 and 1,000,000 row, all-pairs comparison becomes infeasible on any realistic compute budget, however cheap each individual comparison is. Meridian sits at the top of this table on purpose - it is small enough to compare exhaustively in class, which makes it a good teaching set and a slightly misleading one about what production actually requires.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the arithmetic that forces blocking</span>
+      <h2>Every scheme is a bet on a cheap first question</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">A blocking scheme does not decide whether two records match. It decides whether they are even allowed to be compared. That is a much cheaper decision, and cheap decisions are always approximate - which is exactly why blocking has a cost, not just a benefit.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What a blocking key actually buys you<span class="mini">6 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every scheme below reduces the same underlying question to one sentence: <em>group records by something cheap to compute, and only compare records inside the same group.</em> The cheap thing might be an exact field, a sorted position, an approximate distance, or a hashed shingle set. What they share is the trade they make: anything that groups two true-match records apart is a pair lost before Fellegi-Sunter, session 2's string measures, or anything else ever sees it.</p>
+        <p>This is why blocking is discussed as its own pipeline stage rather than folded into scoring. Scoring can be re-run with a different threshold at any time, cheaply, because the comparison already happened. Blocking cannot be re-run after the fact without redoing the expensive part it exists to avoid - which is the same irreversibility session 1 flagged for the pipeline as a whole, now landing on a specific stage.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the four schemes</span>
+      <h2>Exact keys, sliding windows, loose clusters, and hashed shingles</h2>
+      <span class="tag concept">9 min live</span>
+    </div>
+    <p class="lede">The four schemes below range from "group by an exact field" to "hash the text and let similar hashes collide". None of them requires the expensive comparison to run first - that is the entire point.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The same five records shown under four blocking schemes: standard blocking by postcode keeps only records sharing an exact key, sorted neighbourhood keeps adjacent records after sorting, canopy clustering keeps overlapping loose groups, and LSH keeps records whose hashed shingles land in the same bucket">
+        <style>
+          .e4aH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e4aD { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e4aL { font: 400 10px Inter, sans-serif; fill: #5F6B52; }
+          .e4aN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <defs>
+          <marker id="e4Ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#65A30D"/></marker>
+        </defs>
+
+        <!-- Panel 1: standard blocking -->
+        <g>
+          <text class="e4aH" x="20" y="24">STANDARD - EXACT POSTCODE KEY</text>
+          <circle cx="40" cy="60" r="16" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="40" y="64" text-anchor="middle">r1</text><text class="e4aL" x="40" y="86" text-anchor="middle">2010</text>
+          <circle cx="100" cy="60" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="100" y="64" text-anchor="middle">r2</text><text class="e4aL" x="100" y="86" text-anchor="middle">3000</text>
+          <circle cx="160" cy="60" r="16" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="160" y="64" text-anchor="middle">r3</text><text class="e4aL" x="160" y="86" text-anchor="middle">2010</text>
+          <circle cx="40" cy="130" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="40" y="134" text-anchor="middle">r4</text><text class="e4aL" x="40" y="156" text-anchor="middle">3000</text>
+          <circle cx="100" cy="130" r="16" fill="#FEF2F2" stroke="#FCA5A5"/><text class="e4aD" x="100" y="134" text-anchor="middle">r5</text><text class="e4aL" x="100" y="156" text-anchor="middle">4870</text>
+          <line x1="100" y1="76" x2="40" y2="114" stroke="#65A30D" stroke-width="2" marker-end="url(#e4Ar)"/>
+          <text class="e4aL" x="150" y="185">r2, r4 same postcode: compared.</text>
+          <text class="e4aL" x="150" y="200">r5 alone in its postcode: never compared to anyone.</text>
+        </g>
+
+        <!-- Panel 2: sorted neighbourhood -->
+        <g transform="translate(220,0)">
+          <text class="e4aH" x="20" y="24">SORTED NEIGHBOURHOOD - WINDOW OF 3</text>
+          <circle cx="40" cy="60" r="16" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="40" y="64" text-anchor="middle">r3</text>
+          <circle cx="90" cy="60" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="90" y="64" text-anchor="middle">r1</text>
+          <circle cx="140" cy="60" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="140" y="64" text-anchor="middle">r4</text>
+          <circle cx="190" cy="60" r="16" fill="#FEF2F2" stroke="#FCA5A5"/><text class="e4aD" x="190" y="64" text-anchor="middle">r2</text>
+          <rect x="70" y="42" width="90" height="36" rx="8" fill="none" stroke="#65A30D" stroke-width="2" stroke-dasharray="3 2"/>
+          <text class="e4aL" x="20" y="100">sorted by surname key</text>
+          <text class="e4aL" x="20" y="185">Window slides across the sorted list. r1</text>
+          <text class="e4aL" x="20" y="200">and r4 fall inside it together; r2 sorts</text>
+          <text class="e4aL" x="20" y="215">two rows away and drops out of the window.</text>
+        </g>
+
+        <!-- Panel 3: canopy -->
+        <g transform="translate(460,0)">
+          <text class="e4aH" x="0" y="24">CANOPY - OVERLAPPING LOOSE GROUPS</text>
+          <ellipse cx="70" cy="70" rx="60" ry="42" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+          <ellipse cx="130" cy="90" rx="60" ry="42" fill="#FDF4FF" stroke="#F0ABFC" stroke-width="1.5" opacity="0.85"/>
+          <circle cx="45" cy="55" r="14" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="45" y="59" text-anchor="middle">r1</text>
+          <circle cx="90" cy="60" r="14" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="90" y="64" text-anchor="middle">r2</text>
+          <circle cx="110" cy="100" r="14" fill="#F0ABFC" stroke="#A21CAF"/><text class="e4aD" x="110" y="104" text-anchor="middle">r3</text>
+          <circle cx="160" cy="105" r="14" fill="#F0ABFC" stroke="#A21CAF"/><text class="e4aD" x="160" y="109" text-anchor="middle">r4</text>
+          <text class="e4aL" x="0" y="160">Cheap distance forms wide, overlapping canopies</text>
+          <text class="e4aL" x="0" y="175">first. r3 sits in both, so it gets compared against</text>
+          <text class="e4aL" x="0" y="190">both groups before the expensive distance runs.</text>
+        </g>
+
+        <!-- Panel 4: LSH -->
+        <g transform="translate(680,0)">
+          <text class="e4aH" x="0" y="24">LSH - SHINGLES INTO HASH BUCKETS</text>
+          <rect x="0" y="42" width="80" height="36" rx="8" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="40" y="64" text-anchor="middle">bucket 07</text>
+          <rect x="100" y="42" width="80" height="36" rx="8" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="140" y="64" text-anchor="middle">bucket 12</text>
+          <circle cx="20" cy="105" r="13" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="20" y="109" text-anchor="middle">r1</text>
+          <circle cx="60" cy="105" r="13" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="60" y="109" text-anchor="middle">r2</text>
+          <circle cx="140" cy="105" r="13" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="140" y="109" text-anchor="middle">r5</text>
+          <line x1="20" y1="90" x2="35" y2="78" stroke="#65A30D" stroke-width="1.5"/>
+          <line x1="60" y1="90" x2="45" y2="78" stroke="#65A30D" stroke-width="1.5"/>
+          <line x1="140" y1="90" x2="140" y2="78" stroke="#CBD5C0" stroke-width="1.5"/>
+          <text class="e4aL" x="0" y="160">Minimum hash values estimate Jaccard resemblance</text>
+          <text class="e4aL" x="0" y="175">of shingle sets. Same bucket, minhash collided:</text>
+          <text class="e4aL" x="0" y="190">r1, r2 become a candidate pair; r5 does not.</text>
+        </g>
+
+        <rect x="20" y="340" width="14" height="14" fill="#A21CAF"/>
+        <text class="e4aN" x="44" y="352">All four ask a cheap question before the expensive one. All four can put a true match on the wrong side of it.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - four cheap first questions, each with its own way of losing a true pair</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Standard blocking and sorted neighbourhood<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Standard blocking</strong> picks a field, or a derived key, and only compares records that share it exactly - postcode, a truncated surname, a birth year. It is the oldest and simplest approach in production use, so widespread it is field practice rather than a single citable paper. Its failure mode is the flip side of its simplicity: any pair where the key genuinely differs is invisible to it, no matter how similar every other field is.</p>
+        <p><strong>Sorted neighbourhood</strong> (Hernandez and Stolfo, SIGMOD 1995) sorts all records by a chosen key, slides a fixed-size window across the sorted list, and compares every pair that falls inside the same window together. It recovers some of standard blocking's blind spot, because two records with a slightly different key can still land near each other in sort order and end up in the same window. It trades that for more candidate pairs per true pair recovered, which shows up directly in the measured numbers below.</p>
+        <div class="callout warn">
+          <p><strong>Verification honesty.</strong> The sorted neighbourhood citation above (Hernandez and Stolfo, SIGMOD 1995) is reported secondhand - the original paper was not fetched for this course. Treat the method description as standard and well established in the field, and treat the specific citation as unverified against the primary text.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Canopy clustering and LSH<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Canopy clustering</strong> (McCallum, Nigam and Ungar, KDD 2000, pages 169-178) runs a cheap approximate distance measure over the whole dataset first, forming loose, deliberately overlapping groups called canopies. The expensive, accurate distance measure - session 2's string measures, or Fellegi-Sunter's weight - then only runs on pairs that share a canopy. Because canopies overlap on purpose, a record can sit in more than one, which is exactly what protects it from being blocked out by a single bad key. The original paper reported more than a 10x speedup and about a 25 percent reduction in error on bibliographic matching, and this citation is primary-verified.</p>
+        <p><strong>LSH and MinHash</strong> (Broder, "On the Resemblance and Containment of Documents", SEQUENCES 1997) take a different cheap distance entirely: break each string into overlapping character shingles, compute a small set of minimum hash values over those shingles, and use those minhash values to estimate Jaccard resemblance without ever comparing the full strings. Records whose hashes collide into the same bucket become a candidate pair. It scales to enormous text collections precisely because the expensive comparison never has to run on most of the data.</p>
+        <div class="callout warn">
+          <p><strong>Verification honesty.</strong> The LSH and MinHash citation above (Broder, SEQUENCES 1997) is also reported secondhand - the original paper was not fetched for this course. The mechanism description reflects standard usage across current tooling, not a checked reading of the primary text.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers measuring a blocker, and the metric that wins</span>
+      <h2>Pair completeness, reduction ratio, pairs quality</h2>
+      <span class="tag concept">9 min live</span>
+    </div>
+    <p class="lede">Choosing a blocking scheme by instinct is exactly the mistake session 1 warned against for scoring: you cannot tune what you cannot measure. Three metrics, all from Christen's work on data-linkage quality measures, make a blocker's cost visible instead of assumed.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The three metrics, defined properly<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>These come from Christen, "Quality and Complexity Measures for Data Linkage and Deduplication", and the citation is primary-verified.</p>
+        <ul>
+          <li><strong>Pair completeness (PC)</strong> - the recall analogue for blocking. The share of true pairs that survive into the candidate set. If a blocker keeps 91 percent of true pairs, the other 9 percent are gone before scoring even starts.</li>
+          <li><strong>Reduction ratio (RR)</strong> - one minus the candidate pairs divided by all possible pairs. It measures how much work the blocker saved, independent of whether the work it saved was worth saving.</li>
+          <li><strong>Pairs quality (PQ)</strong> - the precision analogue for blocking. The share of surviving candidate pairs that are actually true matches. A low PQ means the expensive scoring stage still has to wade through a lot of pairs that were never going to match.</li>
+        </ul>
+        <p>The trade-off is direct: push RR higher by shrinking the candidate set further, and PC usually falls, because a tighter key or a narrower window is more likely to split a true pair apart. The rule that follows is not a preference, it is a consequence of session 1's irreversibility argument applied to this exact stage: <strong>prioritise pair completeness</strong>. A pair discarded at blocking can never be recovered downstream, however good the scorer is. A false candidate that survives blocking is merely inefficient - the scorer filters it out later, at a cost in compute, not in truth.</p>
+      </div>
+    </details>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Reduction ratio plotted against pair completeness for four blocking schemes on Meridian: all pairs at 0 percent reduction and 100 percent completeness, postcode and soundex both at 98 percent reduction and 91 percent completeness, and sorted neighbourhood at 88 percent reduction and 91 percent completeness, each point annotated with its pairs quality">
+        <style>
+          .e4bH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e4bA { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e4bL { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e4bP { font: 700 11px Inter, sans-serif; fill: #365314; }
+          .e4bN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <!-- axes -->
+        <line x1="80" y1="40" x2="80" y2="300" stroke="#CBD5C0" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="820" y2="300" stroke="#CBD5C0" stroke-width="1.5"/>
+        <text class="e4bH" x="20" y="36">PAIR COMPLETENESS</text>
+        <text class="e4bH" x="700" y="326">REDUCTION RATIO</text>
+        <text class="e4bA" x="50" y="60">100%</text>
+        <text class="e4bA" x="50" y="176">50%</text>
+        <text class="e4bA" x="60" y="296">0%</text>
+        <text class="e4bA" x="76" y="320">0%</text>
+        <text class="e4bA" x="440" y="320">50%</text>
+        <text class="e4bA" x="796" y="320">100%</text>
+        <line x1="80" y1="176" x2="820" y2="176" stroke="#E2E8DA" stroke-width="1"/>
+        <line x1="450" y1="40" x2="450" y2="300" stroke="#E2E8DA" stroke-width="1"/>
+
+        <!-- None: RR 0, PC 100 -->
+        <circle cx="80" cy="56" r="9" fill="#5F6B52"/>
+        <text class="e4bL" x="96" y="52">None - all pairs</text>
+        <text class="e4bP" x="96" y="68">PQ 2%</text>
+
+        <!-- Sorted neighbourhood: RR 88, PC 91 -->
+        <circle cx="731" cy="94" r="9" fill="#65A30D"/>
+        <text class="e4bL" x="620" y="82">Sorted neighbourhood</text>
+        <text class="e4bP" x="620" y="118">PQ 13%</text>
+
+        <!-- Soundex: RR 98, PC 91 -->
+        <circle cx="805" cy="94" r="9" fill="#4D7C0F"/>
+        <text class="e4bL" x="700" y="145">Soundex of surname</text>
+        <text class="e4bP" x="700" y="161">PQ 73%</text>
+
+        <!-- Postcode: RR 98, PC 91, offset slightly for label room -->
+        <circle cx="805" cy="94" r="4" fill="#365314"/>
+        <text class="e4bL" x="700" y="190">Postcode - PQ 78%, best here</text>
+
+        <rect x="20" y="344" width="14" height="14" fill="#A21CAF"/>
+        <text class="e4bN" x="44" y="356">Every real scheme sits at 91% completeness here, never 100. That 9 points is gone for good.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three schemes buy the same completeness for very different pairs quality</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The measured numbers on Meridian, and the honest reading of them<span class="mini">6 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>These four schemes were run against Meridian's actual 1,953 possible pairs, and the numbers below are measured, not estimated.</p>
+        <div class="tablescroll">
+          <table class="clean">
+            <thead><tr><th>Scheme</th><th>Candidate pairs</th><th>Pair completeness</th><th>Reduction ratio</th><th>Pairs quality</th></tr></thead>
+            <tbody>
+              <tr><td>None (all pairs)</td><td>1,953</td><td>100%</td><td>0%</td><td>2%</td></tr>
+              <tr><td>Postcode</td><td>41</td><td>91%</td><td>98%</td><td>78%</td></tr>
+              <tr><td>Soundex of surname</td><td>44</td><td>91%</td><td>98%</td><td>73%</td></tr>
+              <tr><td>Sorted neighbourhood, window 5</td><td>242</td><td>91%</td><td>88%</td><td>13%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The plain point first: <strong>every scheme costs 9 percent of the true pairs, permanently</strong>. None of the three real schemes reaches the 100 percent completeness that "no blocking at all" has by definition, because none of them is lossless - that was true before Meridian was measured and the measurement confirms it. Blocking is a genuine trade, not a free optimisation, and pretending otherwise is how a matcher quietly loses matches nobody notices until someone asks why a known customer pair never got compared.</p>
+        <p>Among the three real schemes, <strong>postcode is the best trade here</strong>: it reaches the same 91 percent completeness and 98 percent reduction as Soundex of surname, but at 78 percent pairs quality against Soundex's 73 percent, meaning fewer of its candidate pairs are wasted on non-matches. Sorted neighbourhood is the clearest illustration of reduction ratio without pairs quality: it does far more comparisons for the same 91 percent completeness - 242 candidate pairs against postcode's 41 - and its pairs quality collapses to 13 percent as a direct result. More candidates is not automatically safer if most of them were never going to match.</p>
+      </div>
+    </details>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A blocking key going wrong: two records for the same person land in different postcode blocks because one postcode is out of date, so the pair is never compared and is lost before scoring, permanently">
+        <style>
+          .e4cH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
+          .e4cK { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e4cD { font: 400 11px Inter, sans-serif; fill: #5F6B52; }
+          .e4cT { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .e4cR { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .e4cN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
+        </style>
+        <defs>
+          <marker id="e4Cr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#CBD5C0"/></marker>
+        </defs>
+
+        <rect x="20" y="30" width="240" height="66" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e4cK" x="140" y="54" text-anchor="middle">Sarah Whitfield, r13</text>
+        <text class="e4cD" x="140" y="72" text-anchor="middle">postcode 2010, old address</text>
+        <text class="e4cD" x="140" y="88" text-anchor="middle">true id e09</text>
+
+        <rect x="620" y="30" width="240" height="66" rx="10" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
+        <text class="e4cK" x="740" y="54" text-anchor="middle">Sarah Whitfield, r63</text>
+        <text class="e4cD" x="740" y="72" text-anchor="middle">postcode 3000, new address</text>
+        <text class="e4cD" x="740" y="88" text-anchor="middle">true id e09 - same person</text>
+
+        <line x1="140" y1="96" x2="140" y2="150" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e4Cr)"/>
+        <line x1="740" y1="96" x2="740" y2="150" stroke="#CBD5C0" stroke-width="2" marker-end="url(#e4Cr)"/>
+
+        <rect x="60" y="154" width="160" height="46" rx="8" fill="#365314"/>
+        <text class="e4cT" x="140" y="182" text-anchor="middle">Block: postcode 2010</text>
+
+        <rect x="660" y="154" width="160" height="46" rx="8" fill="#365314"/>
+        <text class="e4cT" x="740" y="182" text-anchor="middle">Block: postcode 3000</text>
+
+        <rect x="300" y="150" width="280" height="60" rx="10" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text class="e4cR" x="440" y="176" text-anchor="middle">Different blocks - never compared</text>
+        <text class="e4cD" x="440" y="196" text-anchor="middle">no scorer, no threshold, ever sees this pair</text>
+
+        <rect x="20" y="248" width="14" height="14" fill="#A21CAF"/>
+        <text class="e4cN" x="44" y="260">Sarah changed address between the two systems. Postcode blocking, tuned for its best trade-off, still misses exactly this.</text>
+        <text class="e4cN" x="44" y="280">This is one of the 9 percent - lost before session 3's weights, session 5's evaluation, or a human ever gets a chance.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the same postcode key that gives the best trade-off on average still loses a specific true pair</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Choose Meridian's blocker, and defend it on the numbers</h2>
+      <span class="tag demo">★ 17 min · everyone builds</span>
+    </div>
+    <p class="lede">Blocking choices are defensible or they are not, and the three metrics above are what makes the difference visible. Work through the numbers from the table before you pick.</p>
+
+    <div class="steps">
+      <div class="step"><p>By hand: sorted neighbourhood produces 242 candidate pairs out of 1,953 possible ones. Compute its reduction ratio yourself as 1 minus 242/1,953, and check it against the 88 percent in the table.</p></div>
+      <div class="step"><p>Do the same for postcode: 41 candidate pairs out of 1,953. Confirm you get 98 percent, and notice how much smaller a candidate set gets you the same completeness that sorted neighbourhood needed six times as many pairs to reach.</p></div>
+      <div class="step"><p>Using only the table, choose one blocking scheme for Meridian and write two sentences defending it: one citing pair completeness, one citing pairs quality. If you would not ship postcode, say specifically what you know about Meridian's data that the numbers above do not capture.</p></div>
+      <div class="step"><p>Design a <strong>two-pass scheme</strong>: take the union of postcode blocking and Soundex-of-surname blocking, so a pair is a candidate if either key matches. Reason through what this does to pair completeness - can it go down relative to postcode alone? Can it go up? What happens to the candidate count and to pairs quality as a result?</p></div>
+      <div class="step"><p>Name one true pair from session 1's labelled set that you would expect postcode blocking to lose, the way the figure above loses Sarah Whitfield's pair. What field changed between her two records that a postcode key cannot see past?</p></div>
+      <div class="step"><p>Decide, in one sentence: for Meridian specifically, is the union scheme from step 4 worth the extra candidate pairs it costs, or does postcode alone already sit close enough to the best available trade-off? There is no single correct answer - the point is that you can now argue it with numbers instead of instinct.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p>Keep your two-pass reasoning from step 4. Session 5 measures full pipelines end to end, including blocking, so you will be able to check whether the union scheme's extra candidates actually bought back any of the recall postcode alone gave up.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 5</h2>
+      <span class="tag exercise">25 min</span>
+    </div>
+    <ul>
+      <li>Pick a blocking key for your own two-system dataset from session 1's homework. Compute its reduction ratio using the same formula: 1 minus candidate pairs over all possible pairs.</li>
+      <li>Using your 20 labelled pairs, estimate pair completeness for that key: what share of your true pairs would still share the key?</li>
+      <li>Find, or construct, one true pair in your own data that your chosen key would split apart - the way postcode splits Sarah Whitfield's two Meridian records. Write down which field changed and why the key could not see past it.</li>
+      <li>Decide whether a second blocking key, used as a union with the first, would be worth the extra candidate pairs. Write one sentence justifying the answer using pair completeness and pairs quality, not instinct.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">A blocking scheme drops pair completeness to raise its reduction ratio further. Which metric should you protect first, and why?</p>
+      <button class="qopt" type="button">A · Reduction ratio, because compute cost matters more than a few missed pairs</button>
+      <button class="qopt" type="button">B · Pair completeness, because a pair discarded at blocking can never be recovered by anything downstream</button>
+      <button class="qopt" type="button">C · Pairs quality, because a scorer wasting time on false candidates is the bigger risk</button>
+      <p class="qwhy">A false candidate that survives blocking is merely inefficient - the scorer filters it out later at a cost in compute, not in truth. A true pair that blocking discards is gone permanently, with no later stage able to recover it. That asymmetry is why pair completeness is protected first, even at the cost of a larger, less efficient candidate set.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">On Meridian, postcode and Soundex-of-surname blocking both reach 91 percent pair completeness and 98 percent reduction ratio. What separates them?</p>
+      <button class="qopt" type="button">A · Pairs quality: postcode reaches 78 percent, Soundex only 73 percent, so fewer of postcode's candidates are wasted on non-matches</button>
+      <button class="qopt" type="button">B · Nothing measurable - they are functionally identical schemes on this data</button>
+      <button class="qopt" type="button">C · Candidate pair count, since Soundex produces far more candidates than postcode</button>
+      <p class="qwhy">The two schemes tie on completeness and reduction ratio but not on pairs quality: postcode's 41 candidate pairs include a higher share of true matches (78 percent) than Soundex's 44 candidates (73 percent). That is precisely why postcode is called the best trade here - not because it recovers more true pairs, but because less of its candidate set is wasted work.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">Sorted neighbourhood on Meridian produces 242 candidate pairs at the same 91 percent completeness postcode reaches with 41. What is the direct consequence for pairs quality?</p>
+      <button class="qopt" type="button">A · Pairs quality rises, because a wider window catches more evidence per pair</button>
+      <button class="qopt" type="button">B · Pairs quality is unaffected - it depends only on completeness</button>
+      <button class="qopt" type="button">C · Pairs quality falls to 13 percent, because six times as many candidates for the same true pairs means most of them are non-matches</button>
+      <p class="qwhy">Pairs quality is the share of candidates that are true matches. Holding the count of true pairs found roughly constant while multiplying the candidate set by six means the extra candidates are overwhelmingly non-matches, which is exactly what drags sorted neighbourhood's pairs quality down to 13 percent against postcode's 78 percent.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">The n-squared arithmetic and the O(N&#215;M) pair count</span><span class="note">Computed directly, restated from session 1; not a citation</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Standard blocking on an exact key</span><span class="note">Field practice, not a single citable paper - presented as such deliberately</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Hernandez and Stolfo, sorted neighbourhood, SIGMOD 1995</span><span class="note">Secondary - the original paper was not fetched for this course</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">McCallum, Nigam and Ungar, canopy clustering, KDD 2000, pages 169-178</span><span class="note">Primary-verified, including the reported 10x speedup and 25 percent error reduction</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Broder, LSH and MinHash, SEQUENCES 1997</span><span class="note">Secondary - the original paper was not fetched for this course</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Christen, pair completeness, reduction ratio, pairs quality</span><span class="note">Primary-verified; the three metrics and the completeness-first rule taught in full, with measured Meridian numbers</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Full source map with every URL and every verification caveat: <span class="mono">materials/official-course-map.md</span> in this repo.</p>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 4 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Why block at all</b><span>All-pairs is O(N&#215;M), infeasible past roughly 100,000 to 1,000,000 records per side.</span></div>
+      <div class="cheat-item"><b>Four schemes</b><span>Standard (exact key), sorted neighbourhood (window), canopy (overlapping loose groups), LSH/MinHash (hashed shingles).</span></div>
+      <div class="cheat-item"><b>The three metrics</b><span>Pair completeness (recall analogue), reduction ratio (work saved), pairs quality (precision analogue).</span></div>
+      <div class="cheat-item"><b>Completeness first</b><span>A pair blocking drops is gone forever. A false candidate is just filtered later, at a compute cost only.</span></div>
+      <div class="cheat-item"><b>Meridian's numbers</b><span>Postcode: 41 pairs, 91% PC, 98% RR, 78% PQ - the best trade among the three real schemes.</span></div>
+      <div class="cheat-item"><b>The honest cost</b><span>Every real scheme here loses 9 percent of true pairs, permanently. Blocking is a trade, not a free win.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>A blocker with a defensible pair completeness and a scorer with a calibrated weight still have to be judged as a whole. Session 5 runs full configurations end to end on Meridian, reports precision, recall and F1 next to the accuracy number that looks great and means nothing, and shows exactly what the clerical band buys you when both are measured honestly.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 4 of 6 · learn-entity-resolution-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="03-fellegi-sunter.html">← Previous: Fellegi-Sunter</a> &nbsp;·&nbsp; <a href="05-judging-it.html">Next: Judging it →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>
