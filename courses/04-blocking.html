@@ -134,6 +134,7 @@
         <style>
           .e4aH { font: 700 11px Inter, sans-serif; fill: #5F6B52; }
           .e4aD { font: 700 12px Inter, sans-serif; fill: #1A2010; }
+          .e4aDw { font: 700 12px Inter, sans-serif; fill: #fff; }
           .e4aL { font: 400 10px Inter, sans-serif; fill: #5F6B52; }
           .e4aN { font: 400 12px Inter, sans-serif; fill: #5F6B52; }
         </style>
@@ -143,48 +144,50 @@
 
         <!-- Panel 1: standard blocking -->
         <g>
-          <text class="e4aH" x="20" y="24">STANDARD - EXACT POSTCODE KEY</text>
+          <text class="e4aH" x="20" y="24">STANDARD - POSTCODE KEY</text>
           <circle cx="40" cy="60" r="16" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="40" y="64" text-anchor="middle">r1</text><text class="e4aL" x="40" y="86" text-anchor="middle">2010</text>
           <circle cx="100" cy="60" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="100" y="64" text-anchor="middle">r2</text><text class="e4aL" x="100" y="86" text-anchor="middle">3000</text>
           <circle cx="160" cy="60" r="16" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="160" y="64" text-anchor="middle">r3</text><text class="e4aL" x="160" y="86" text-anchor="middle">2010</text>
           <circle cx="40" cy="130" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="40" y="134" text-anchor="middle">r4</text><text class="e4aL" x="40" y="156" text-anchor="middle">3000</text>
           <circle cx="100" cy="130" r="16" fill="#FEF2F2" stroke="#FCA5A5"/><text class="e4aD" x="100" y="134" text-anchor="middle">r5</text><text class="e4aL" x="100" y="156" text-anchor="middle">4870</text>
           <line x1="100" y1="76" x2="40" y2="114" stroke="#65A30D" stroke-width="2" marker-end="url(#e4Ar)"/>
-          <text class="e4aL" x="150" y="185">r2, r4 same postcode: compared.</text>
-          <text class="e4aL" x="150" y="200">r5 alone in its postcode: never compared to anyone.</text>
+          <text class="e4aL" x="20" y="185">r2 and r4 share a postcode</text>
+          <text class="e4aL" x="20" y="200">and are compared. r5 is</text>
+          <text class="e4aL" x="20" y="215">alone, so never compared.</text>
         </g>
 
         <!-- Panel 2: sorted neighbourhood -->
         <g transform="translate(220,0)">
-          <text class="e4aH" x="20" y="24">SORTED NEIGHBOURHOOD - WINDOW OF 3</text>
+          <text class="e4aH" x="20" y="24">SORTED NEIGHBOURHOOD, W=3</text>
           <circle cx="40" cy="60" r="16" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="40" y="64" text-anchor="middle">r3</text>
           <circle cx="90" cy="60" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="90" y="64" text-anchor="middle">r1</text>
           <circle cx="140" cy="60" r="16" fill="#D9F99D" stroke="#65A30D"/><text class="e4aD" x="140" y="64" text-anchor="middle">r4</text>
           <circle cx="190" cy="60" r="16" fill="#FEF2F2" stroke="#FCA5A5"/><text class="e4aD" x="190" y="64" text-anchor="middle">r2</text>
           <rect x="70" y="42" width="90" height="36" rx="8" fill="none" stroke="#65A30D" stroke-width="2" stroke-dasharray="3 2"/>
           <text class="e4aL" x="20" y="100">sorted by surname key</text>
-          <text class="e4aL" x="20" y="185">Window slides across the sorted list. r1</text>
-          <text class="e4aL" x="20" y="200">and r4 fall inside it together; r2 sorts</text>
-          <text class="e4aL" x="20" y="215">two rows away and drops out of the window.</text>
+          <text class="e4aL" x="20" y="185">Window slides down the</text>
+          <text class="e4aL" x="20" y="200">sorted list. r1 and r4</text>
+          <text class="e4aL" x="20" y="215">land together; r2 drops.</text>
         </g>
 
         <!-- Panel 3: canopy -->
         <g transform="translate(460,0)">
-          <text class="e4aH" x="0" y="24">CANOPY - OVERLAPPING LOOSE GROUPS</text>
+          <text class="e4aH" x="0" y="24">CANOPY - LOOSE GROUPS</text>
           <ellipse cx="70" cy="70" rx="60" ry="42" fill="#F7FEE7" stroke="#D9F99D" stroke-width="1.5"/>
-          <ellipse cx="130" cy="90" rx="60" ry="42" fill="#FDF4FF" stroke="#F0ABFC" stroke-width="1.5" opacity="0.85"/>
+          <ellipse cx="130" cy="90" rx="60" ry="42" fill="#FDF4FF" stroke="#A21CAF" stroke-width="1.5" opacity="0.85"/>
           <circle cx="45" cy="55" r="14" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="45" y="59" text-anchor="middle">r1</text>
           <circle cx="90" cy="60" r="14" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="90" y="64" text-anchor="middle">r2</text>
-          <circle cx="110" cy="100" r="14" fill="#F0ABFC" stroke="#A21CAF"/><text class="e4aD" x="110" y="104" text-anchor="middle">r3</text>
-          <circle cx="160" cy="105" r="14" fill="#F0ABFC" stroke="#A21CAF"/><text class="e4aD" x="160" y="109" text-anchor="middle">r4</text>
-          <text class="e4aL" x="0" y="160">Cheap distance forms wide, overlapping canopies</text>
-          <text class="e4aL" x="0" y="175">first. r3 sits in both, so it gets compared against</text>
-          <text class="e4aL" x="0" y="190">both groups before the expensive distance runs.</text>
+          <circle cx="110" cy="100" r="14" fill="#A21CAF" stroke="#701A75"/><text class="e4aDw" x="110" y="104" text-anchor="middle">r3</text>
+          <circle cx="160" cy="105" r="14" fill="#A21CAF" stroke="#701A75"/><text class="e4aDw" x="160" y="109" text-anchor="middle">r4</text>
+          <text class="e4aL" x="0" y="160">Cheap distance makes wide,</text>
+          <text class="e4aL" x="0" y="175">overlapping groups. r3 sits</text>
+          <text class="e4aL" x="0" y="190">in both, so it is compared</text>
+          <text class="e4aL" x="0" y="205">twice.</text>
         </g>
 
         <!-- Panel 4: LSH -->
         <g transform="translate(680,0)">
-          <text class="e4aH" x="0" y="24">LSH - SHINGLES INTO HASH BUCKETS</text>
+          <text class="e4aH" x="0" y="24">LSH - HASH BUCKETS</text>
           <rect x="0" y="42" width="80" height="36" rx="8" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="40" y="64" text-anchor="middle">bucket 07</text>
           <rect x="100" y="42" width="80" height="36" rx="8" fill="#F7FEE7" stroke="#D9F99D"/><text class="e4aD" x="140" y="64" text-anchor="middle">bucket 12</text>
           <circle cx="20" cy="105" r="13" fill="#D9F99D" stroke="#4D7C0F"/><text class="e4aD" x="20" y="109" text-anchor="middle">r1</text>
@@ -193,9 +196,9 @@
           <line x1="20" y1="90" x2="35" y2="78" stroke="#65A30D" stroke-width="1.5"/>
           <line x1="60" y1="90" x2="45" y2="78" stroke="#65A30D" stroke-width="1.5"/>
           <line x1="140" y1="90" x2="140" y2="78" stroke="#CBD5C0" stroke-width="1.5"/>
-          <text class="e4aL" x="0" y="160">Minimum hash values estimate Jaccard resemblance</text>
-          <text class="e4aL" x="0" y="175">of shingle sets. Same bucket, minhash collided:</text>
-          <text class="e4aL" x="0" y="190">r1, r2 become a candidate pair; r5 does not.</text>
+          <text class="e4aL" x="0" y="160">Minhash estimates Jaccard</text>
+          <text class="e4aL" x="0" y="175">on shingles. Same bucket:</text>
+          <text class="e4aL" x="0" y="190">r1 and r2 pair, r5 does not.</text>
         </g>
 
         <rect x="20" y="340" width="14" height="14" fill="#A21CAF"/>
@@ -262,7 +265,7 @@
         <line x1="80" y1="40" x2="80" y2="300" stroke="#CBD5C0" stroke-width="1.5"/>
         <line x1="80" y1="300" x2="820" y2="300" stroke="#CBD5C0" stroke-width="1.5"/>
         <text class="e4bH" x="20" y="36">PAIR COMPLETENESS</text>
-        <text class="e4bH" x="700" y="326">REDUCTION RATIO</text>
+        <text class="e4bH" x="470" y="326">REDUCTION RATIO</text>
         <text class="e4bA" x="50" y="60">100%</text>
         <text class="e4bA" x="50" y="176">50%</text>
         <text class="e4bA" x="60" y="296">0%</text>
